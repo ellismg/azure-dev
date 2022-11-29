@@ -96,6 +96,28 @@ function deployTemplate {
     azd deploy -e "$3"
 }
 
+# Waits for the API service to be ready
+# $1 - The template name
+# $2 - The branch name
+# $3 - The environment name
+function waitForApiService {
+    echo "Waiting for API Service for $3..."
+    cd "$FOLDER_PATH/$3"
+
+    local API_URL=$(azd env get-values --output json | jq -r .REACT_APP_API_BASE_URL)
+
+    if [ "$API_URL" == "null" ]; then
+        echo "No REACT_APP_API_BASE_URL export, not waiting."
+        return 0
+    fi
+
+    while [ "$(curl --silent "$API_URL/lists" | jq -r type)" != "array" ]
+    do
+        echo "API Service not ready, waiting 30 seconds."
+        sleep 30
+    done
+}
+
 # Tests the specified template
 # $1 - The template name
 # $2 - The branch name
@@ -145,6 +167,7 @@ if [[ -z $TEMPLATE_NAME ]]; then
 
     # Test the templates serially
     for TEMPLATE in "${!ENV_TEMPLATE_MAP[@]}"; do
+        waitForApiService "$TEMPLATE" "$BRANCH_NAME" "${ENV_TEMPLATE_MAP[$TEMPLATE]}" || continue
         testTemplate "$TEMPLATE" "$BRANCH_NAME" "${ENV_TEMPLATE_MAP[$TEMPLATE]}" || continue
     done
 
