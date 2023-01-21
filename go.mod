@@ -88,3 +88,7 @@ require (
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 )
+
+replace github.com/AzureAD/microsoft-authentication-library-for-go => github.com/AzureAD/microsoft-authentication-library-for-go v0.6.1-0.20230119211401-18d183375da4
+
+replace github.com/Azure/azure-sdk-for-go/sdk/azidentity => github.com/ellismg/azure-sdk-for-go/sdk/azidentity v0.9.3-0.20230120233410-7d8c0ab09ae8
