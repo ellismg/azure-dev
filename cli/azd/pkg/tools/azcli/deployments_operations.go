@@ -10,6 +10,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/azure/azure-dev/cli/azd/internal/telemetry"
 )
 
 func (cli *azCli) createDeploymentsOperationsClient(
@@ -30,28 +31,30 @@ func (cli *azCli) ListSubscriptionDeploymentOperations(
 	subscriptionId string,
 	deploymentName string,
 ) ([]*armresources.DeploymentOperation, error) {
-	result := []*armresources.DeploymentOperation{}
-	deploymentOperationsClient, err := cli.createDeploymentsOperationsClient(ctx, subscriptionId)
-	if err != nil {
-		return nil, fmt.Errorf("creating deployments client: %w", err)
-	}
-
-	// Get all without any filter
-	getDeploymentsPager := deploymentOperationsClient.NewListAtSubscriptionScopePager(deploymentName, nil)
-
-	for getDeploymentsPager.More() {
-		page, err := getDeploymentsPager.NextPage(ctx)
-		var errDetails *azcore.ResponseError
-		if errors.As(err, &errDetails) && errDetails.StatusCode == 404 {
-			return nil, ErrDeploymentNotFound
-		}
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) ([]*armresources.DeploymentOperation, error) {
+		result := []*armresources.DeploymentOperation{}
+		deploymentOperationsClient, err := cli.createDeploymentsOperationsClient(ctx, subscriptionId)
 		if err != nil {
-			return nil, fmt.Errorf("failed getting list of deployment operations: %w", err)
+			return nil, fmt.Errorf("creating deployments client: %w", err)
 		}
-		result = append(result, page.Value...)
-	}
 
-	return result, nil
+		// Get all without any filter
+		getDeploymentsPager := deploymentOperationsClient.NewListAtSubscriptionScopePager(deploymentName, nil)
+
+		for getDeploymentsPager.More() {
+			page, err := getDeploymentsPager.NextPage(ctx)
+			var errDetails *azcore.ResponseError
+			if errors.As(err, &errDetails) && errDetails.StatusCode == 404 {
+				return nil, ErrDeploymentNotFound
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed getting list of deployment operations: %w", err)
+			}
+			result = append(result, page.Value...)
+		}
+
+		return result, nil
+	})
 }
 
 func (cli *azCli) ListResourceGroupDeploymentOperations(
@@ -60,26 +63,28 @@ func (cli *azCli) ListResourceGroupDeploymentOperations(
 	resourceGroupName string,
 	deploymentName string,
 ) ([]*armresources.DeploymentOperation, error) {
-	result := []*armresources.DeploymentOperation{}
-	deploymentOperationsClient, err := cli.createDeploymentsOperationsClient(ctx, subscriptionId)
-	if err != nil {
-		return nil, fmt.Errorf("creating deployments client: %w", err)
-	}
-
-	// Get all without any filter
-	getDeploymentsPager := deploymentOperationsClient.NewListPager(resourceGroupName, deploymentName, nil)
-
-	for getDeploymentsPager.More() {
-		page, err := getDeploymentsPager.NextPage(ctx)
-		var errDetails *azcore.ResponseError
-		if errors.As(err, &errDetails) && errDetails.StatusCode == 404 {
-			return nil, ErrDeploymentNotFound
-		}
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) ([]*armresources.DeploymentOperation, error) {
+		result := []*armresources.DeploymentOperation{}
+		deploymentOperationsClient, err := cli.createDeploymentsOperationsClient(ctx, subscriptionId)
 		if err != nil {
-			return nil, fmt.Errorf("failed getting list of deployment operations from resource group: %w", err)
+			return nil, fmt.Errorf("creating deployments client: %w", err)
 		}
-		result = append(result, page.Value...)
-	}
 
-	return result, nil
+		// Get all without any filter
+		getDeploymentsPager := deploymentOperationsClient.NewListPager(resourceGroupName, deploymentName, nil)
+
+		for getDeploymentsPager.More() {
+			page, err := getDeploymentsPager.NextPage(ctx)
+			var errDetails *azcore.ResponseError
+			if errors.As(err, &errDetails) && errDetails.StatusCode == 404 {
+				return nil, ErrDeploymentNotFound
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed getting list of deployment operations from resource group: %w", err)
+			}
+			result = append(result, page.Value...)
+		}
+
+		return result, nil
+	})
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
+	"github.com/azure/azure-dev/cli/azd/internal/telemetry"
 	"github.com/azure/azure-dev/cli/azd/pkg/convert"
 )
 
@@ -35,74 +36,80 @@ func (cli *azCli) GetKeyVault(
 	resourceGroupName string,
 	vaultName string,
 ) (*AzCliKeyVault, error) {
-	client, err := cli.createKeyVaultClient(ctx, subscriptionId)
-	if err != nil {
-		return nil, err
-	}
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) (*AzCliKeyVault, error) {
+		client, err := cli.createKeyVaultClient(ctx, subscriptionId)
+		if err != nil {
+			return nil, err
+		}
 
-	vault, err := client.Get(ctx, resourceGroupName, vaultName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("getting keyvault: %w", err)
-	}
+		vault, err := client.Get(ctx, resourceGroupName, vaultName, nil)
+		if err != nil {
+			return nil, fmt.Errorf("getting keyvault: %w", err)
+		}
 
-	return &AzCliKeyVault{
-		Id:       *vault.ID,
-		Name:     *vault.Name,
-		Location: *vault.Location,
-		Properties: struct {
-			EnableSoftDelete      bool "json:\"enableSoftDelete\""
-			EnablePurgeProtection bool "json:\"enablePurgeProtection\""
-		}{
-			EnableSoftDelete:      convert.ToValueWithDefault(vault.Properties.EnableSoftDelete, false),
-			EnablePurgeProtection: convert.ToValueWithDefault(vault.Properties.EnablePurgeProtection, false),
-		},
-	}, nil
+		return &AzCliKeyVault{
+			Id:       *vault.ID,
+			Name:     *vault.Name,
+			Location: *vault.Location,
+			Properties: struct {
+				EnableSoftDelete      bool "json:\"enableSoftDelete\""
+				EnablePurgeProtection bool "json:\"enablePurgeProtection\""
+			}{
+				EnableSoftDelete:      convert.ToValueWithDefault(vault.Properties.EnableSoftDelete, false),
+				EnablePurgeProtection: convert.ToValueWithDefault(vault.Properties.EnablePurgeProtection, false),
+			},
+		}, nil
+	})
 }
 
 func (cli *azCli) GetKeyVaultSecret(ctx context.Context, vaultName string, secretName string) (*AzCliKeyVaultSecret, error) {
-	vaultUrl := vaultName
-	if !strings.Contains(strings.ToLower(vaultName), "https://") {
-		vaultUrl = fmt.Sprintf("https://%s.vault.azure.net", vaultName)
-	}
-
-	client, err := cli.createSecretsDataClient(ctx, vaultUrl)
-	if err != nil {
-		return nil, nil
-	}
-
-	response, err := client.GetSecret(ctx, secretName, "", nil)
-	if err != nil {
-		var httpErr *azcore.ResponseError
-		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusNotFound {
-			return nil, ErrAzCliSecretNotFound
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) (*AzCliKeyVaultSecret, error) {
+		vaultUrl := vaultName
+		if !strings.Contains(strings.ToLower(vaultName), "https://") {
+			vaultUrl = fmt.Sprintf("https://%s.vault.azure.net", vaultName)
 		}
-		return nil, fmt.Errorf("getting key vault secret: %w", err)
-	}
 
-	return &AzCliKeyVaultSecret{
-		Id:    response.SecretBundle.ID.Version(),
-		Name:  response.SecretBundle.ID.Name(),
-		Value: *response.SecretBundle.Value,
-	}, nil
+		client, err := cli.createSecretsDataClient(ctx, vaultUrl)
+		if err != nil {
+			return nil, nil
+		}
+
+		response, err := client.GetSecret(ctx, secretName, "", nil)
+		if err != nil {
+			var httpErr *azcore.ResponseError
+			if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusNotFound {
+				return nil, ErrAzCliSecretNotFound
+			}
+			return nil, fmt.Errorf("getting key vault secret: %w", err)
+		}
+
+		return &AzCliKeyVaultSecret{
+			Id:    response.SecretBundle.ID.Version(),
+			Name:  response.SecretBundle.ID.Name(),
+			Value: *response.SecretBundle.Value,
+		}, nil
+	})
 }
 
 func (cli *azCli) PurgeKeyVault(ctx context.Context, subscriptionId string, vaultName string, location string) error {
-	client, err := cli.createKeyVaultClient(ctx, subscriptionId)
-	if err != nil {
-		return err
-	}
+	return telemetry.WithSpan(ctx, func(ctx context.Context) error {
+		client, err := cli.createKeyVaultClient(ctx, subscriptionId)
+		if err != nil {
+			return err
+		}
 
-	poller, err := client.BeginPurgeDeleted(ctx, vaultName, location, nil)
-	if err != nil {
-		return fmt.Errorf("starting purging key vault: %w", err)
-	}
+		poller, err := client.BeginPurgeDeleted(ctx, vaultName, location, nil)
+		if err != nil {
+			return fmt.Errorf("starting purging key vault: %w", err)
+		}
 
-	_, err = poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("purging key vault: %w", err)
-	}
+		_, err = poller.PollUntilDone(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("purging key vault: %w", err)
+		}
 
-	return nil
+		return nil
+	})
 }
 
 // Creates a KeyVault client for ARM control plane operations

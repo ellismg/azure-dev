@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/appservice/armappservice"
+	"github.com/azure/azure-dev/cli/azd/internal/telemetry"
 )
 
 type AzCliStaticWebAppProperties struct {
@@ -23,19 +24,21 @@ func (cli *azCli) GetStaticWebAppProperties(
 	resourceGroup string,
 	appName string,
 ) (*AzCliStaticWebAppProperties, error) {
-	client, err := cli.createStaticSitesClient(ctx, subscriptionId)
-	if err != nil {
-		return nil, err
-	}
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) (*AzCliStaticWebAppProperties, error) {
+		client, err := cli.createStaticSitesClient(ctx, subscriptionId)
+		if err != nil {
+			return nil, err
+		}
 
-	staticSite, err := client.GetStaticSite(ctx, resourceGroup, appName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("retrieving static site '%s': %w", appName, err)
-	}
+		staticSite, err := client.GetStaticSite(ctx, resourceGroup, appName, nil)
+		if err != nil {
+			return nil, fmt.Errorf("retrieving static site '%s': %w", appName, err)
+		}
 
-	return &AzCliStaticWebAppProperties{
-		DefaultHostname: *staticSite.Properties.DefaultHostname,
-	}, nil
+		return &AzCliStaticWebAppProperties{
+			DefaultHostname: *staticSite.Properties.DefaultHostname,
+		}, nil
+	})
 }
 
 func (cli *azCli) GetStaticWebAppEnvironmentProperties(
@@ -45,20 +48,22 @@ func (cli *azCli) GetStaticWebAppEnvironmentProperties(
 	appName string,
 	environmentName string,
 ) (*AzCliStaticWebAppEnvironmentProperties, error) {
-	client, err := cli.createStaticSitesClient(ctx, subscriptionId)
-	if err != nil {
-		return nil, err
-	}
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) (*AzCliStaticWebAppEnvironmentProperties, error) {
+		client, err := cli.createStaticSitesClient(ctx, subscriptionId)
+		if err != nil {
+			return nil, err
+		}
 
-	build, err := client.GetStaticSiteBuild(ctx, resourceGroup, appName, environmentName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("retrieving static site environment '%s': %w", environmentName, err)
-	}
+		build, err := client.GetStaticSiteBuild(ctx, resourceGroup, appName, environmentName, nil)
+		if err != nil {
+			return nil, fmt.Errorf("retrieving static site environment '%s': %w", environmentName, err)
+		}
 
-	return &AzCliStaticWebAppEnvironmentProperties{
-		Hostname: *build.Properties.Hostname,
-		Status:   string(*build.Properties.Status),
-	}, nil
+		return &AzCliStaticWebAppEnvironmentProperties{
+			Hostname: *build.Properties.Hostname,
+			Status:   string(*build.Properties.Status),
+		}, nil
+	})
 }
 
 func (cli *azCli) GetStaticWebAppApiKey(
@@ -67,22 +72,24 @@ func (cli *azCli) GetStaticWebAppApiKey(
 	resourceGroup string,
 	appName string,
 ) (*string, error) {
-	client, err := cli.createStaticSitesClient(ctx, subscriptionId)
-	if err != nil {
-		return nil, err
-	}
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) (*string, error) {
+		client, err := cli.createStaticSitesClient(ctx, subscriptionId)
+		if err != nil {
+			return nil, err
+		}
 
-	secretsResponse, err := client.ListStaticSiteSecrets(ctx, resourceGroup, appName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("retrieving static site secrets for '%s': %w", appName, err)
-	}
+		secretsResponse, err := client.ListStaticSiteSecrets(ctx, resourceGroup, appName, nil)
+		if err != nil {
+			return nil, fmt.Errorf("retrieving static site secrets for '%s': %w", appName, err)
+		}
 
-	apiKey, ok := secretsResponse.Properties["apiKey"]
-	if !ok {
-		return nil, errors.New("cannot find property 'apiKey'")
-	}
+		apiKey, ok := secretsResponse.Properties["apiKey"]
+		if !ok {
+			return nil, errors.New("cannot find property 'apiKey'")
+		}
 
-	return apiKey, nil
+		return apiKey, nil
+	})
 }
 
 func (cli *azCli) createStaticSitesClient(

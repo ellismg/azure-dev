@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
+	"github.com/azure/azure-dev/cli/azd/internal/telemetry"
 	"github.com/azure/azure-dev/cli/azd/pkg/azure"
 	"github.com/azure/azure-dev/cli/azd/pkg/exec"
 	"github.com/azure/azure-dev/cli/azd/pkg/tools/docker"
@@ -16,59 +17,63 @@ func (cli *azCli) GetContainerRegistries(
 	ctx context.Context,
 	subscriptionId string,
 ) ([]*armcontainerregistry.Registry, error) {
-	client, err := cli.createRegistriesClient(ctx, subscriptionId)
-	if err != nil {
-		return nil, err
-	}
-
-	results := []*armcontainerregistry.Registry{}
-	pager := client.NewListPager(nil)
-
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) ([]*armcontainerregistry.Registry, error) {
+		client, err := cli.createRegistriesClient(ctx, subscriptionId)
 		if err != nil {
-			return nil, fmt.Errorf("failed getting next page of registries: %w", err)
+			return nil, err
 		}
 
-		results = append(results, page.RegistryListResult.Value...)
-	}
+		results := []*armcontainerregistry.Registry{}
+		pager := client.NewListPager(nil)
 
-	return results, nil
+		for pager.More() {
+			page, err := pager.NextPage(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed getting next page of registries: %w", err)
+			}
+
+			results = append(results, page.RegistryListResult.Value...)
+		}
+
+		return results, nil
+	})
 }
 
 func (cli *azCli) LoginAcr(ctx context.Context,
 	commandRunner exec.CommandRunner, subscriptionId string, loginServer string,
 ) error {
-	client, err := cli.createRegistriesClient(ctx, subscriptionId)
-	if err != nil {
-		return err
-	}
+	return telemetry.WithSpan(ctx, func(ctx context.Context) error {
+		client, err := cli.createRegistriesClient(ctx, subscriptionId)
+		if err != nil {
+			return err
+		}
 
-	parts := strings.Split(loginServer, ".")
-	registryName := parts[0]
+		parts := strings.Split(loginServer, ".")
+		registryName := parts[0]
 
-	// Find the registry and resource group
-	_, resourceGroup, err := cli.findContainerRegistryByName(ctx, subscriptionId, registryName)
-	if err != nil {
-		return err
-	}
+		// Find the registry and resource group
+		_, resourceGroup, err := cli.findContainerRegistryByName(ctx, subscriptionId, registryName)
+		if err != nil {
+			return err
+		}
 
-	// Retrieve the registry credentials
-	credResponse, err := client.ListCredentials(ctx, resourceGroup, registryName, nil)
-	if err != nil {
-		return fmt.Errorf("getting container registry credentials: %w", err)
-	}
+		// Retrieve the registry credentials
+		credResponse, err := client.ListCredentials(ctx, resourceGroup, registryName, nil)
+		if err != nil {
+			return fmt.Errorf("getting container registry credentials: %w", err)
+		}
 
-	username := *credResponse.Username
+		username := *credResponse.Username
 
-	// Login to docker with ACR credentials to allow push operations
-	dockerCli := docker.NewDocker(commandRunner)
-	err = dockerCli.Login(ctx, loginServer, username, *credResponse.Passwords[0].Value)
-	if err != nil {
-		return fmt.Errorf("failed logging into docker for username '%s' and server %s: %w", loginServer, username, err)
-	}
+		// Login to docker with ACR credentials to allow push operations
+		dockerCli := docker.NewDocker(commandRunner)
+		err = dockerCli.Login(ctx, loginServer, username, *credResponse.Passwords[0].Value)
+		if err != nil {
+			return fmt.Errorf("failed logging into docker for username '%s' and server %s: %w", loginServer, username, err)
+		}
 
-	return nil
+		return nil
+	})
 }
 
 func (cli *azCli) findContainerRegistryByName(

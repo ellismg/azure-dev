@@ -10,6 +10,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
+	"github.com/azure/azure-dev/cli/azd/internal/telemetry"
 	"github.com/azure/azure-dev/cli/azd/pkg/azure"
 	"github.com/azure/azure-dev/cli/azd/pkg/convert"
 	"github.com/azure/azure-dev/cli/azd/pkg/graphsdk"
@@ -27,17 +28,19 @@ type AzureCredentials struct {
 }
 
 func (cli *azCli) GetSignedInUserId(ctx context.Context) (*string, error) {
-	client, err := cli.createGraphClient(ctx)
-	if err != nil {
-		return nil, err
-	}
+	return telemetry.WithValueSpan(ctx, func(cxt context.Context) (*string, error) {
+		client, err := cli.createGraphClient(ctx)
+		if err != nil {
+			return nil, err
+		}
 
-	userProfile, err := client.Me().Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed retrieving current user profile: %w", err)
-	}
+		userProfile, err := client.Me().Get(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed retrieving current user profile: %w", err)
+		}
 
-	return &userProfile.Id, nil
+		return &userProfile.Id, nil
+	})
 }
 
 func (cli *azCli) CreateOrUpdateServicePrincipal(
@@ -46,54 +49,56 @@ func (cli *azCli) CreateOrUpdateServicePrincipal(
 	applicationName string,
 	roleName string,
 ) (json.RawMessage, error) {
-	graphClient, err := cli.createGraphClient(ctx)
-	if err != nil {
-		return nil, err
-	}
+	return telemetry.WithValueSpan(ctx, func(cxt context.Context) (json.RawMessage, error) {
+		graphClient, err := cli.createGraphClient(ctx)
+		if err != nil {
+			return nil, err
+		}
 
-	// Get or create application
-	application, err := ensureApplication(ctx, graphClient, applicationName)
-	if err != nil {
-		return nil, err
-	}
+		// Get or create application
+		application, err := ensureApplication(ctx, graphClient, applicationName)
+		if err != nil {
+			return nil, err
+		}
 
-	// Get or create service principal from application
-	servicePrincipal, err := ensureServicePrincipal(ctx, graphClient, application)
-	if err != nil {
-		return nil, err
-	}
+		// Get or create service principal from application
+		servicePrincipal, err := ensureServicePrincipal(ctx, graphClient, application)
+		if err != nil {
+			return nil, err
+		}
 
-	// Reset credentials for service principal
-	credential, err := resetCredentials(ctx, graphClient, application)
-	if err != nil {
-		return nil, fmt.Errorf("failed resetting application credentials: %w", err)
-	}
+		// Reset credentials for service principal
+		credential, err := resetCredentials(ctx, graphClient, application)
+		if err != nil {
+			return nil, fmt.Errorf("failed resetting application credentials: %w", err)
+		}
 
-	// Apply specified role assignment
-	err = cli.ensureRoleAssignments(ctx, subscriptionId, roleName, servicePrincipal)
-	if err != nil {
-		return nil, fmt.Errorf("failed applying role assignment: %w", err)
-	}
+		// Apply specified role assignment
+		err = cli.ensureRoleAssignments(ctx, subscriptionId, roleName, servicePrincipal)
+		if err != nil {
+			return nil, fmt.Errorf("failed applying role assignment: %w", err)
+		}
 
-	azureCreds := AzureCredentials{
-		ClientId:                   *application.AppId,
-		ClientSecret:               *credential.SecretText,
-		SubscriptionId:             subscriptionId,
-		TenantId:                   *servicePrincipal.AppOwnerOrganizationId,
-		ResourceManagerEndpointUrl: "https://management.azure.com/",
-	}
+		azureCreds := AzureCredentials{
+			ClientId:                   *application.AppId,
+			ClientSecret:               *credential.SecretText,
+			SubscriptionId:             subscriptionId,
+			TenantId:                   *servicePrincipal.AppOwnerOrganizationId,
+			ResourceManagerEndpointUrl: "https://management.azure.com/",
+		}
 
-	credentialsJson, err := json.Marshal(azureCreds)
-	if err != nil {
-		return nil, fmt.Errorf("failed marshalling Azure credentials to JSON: %w", err)
-	}
+		credentialsJson, err := json.Marshal(azureCreds)
+		if err != nil {
+			return nil, fmt.Errorf("failed marshalling Azure credentials to JSON: %w", err)
+		}
 
-	var rawMessage json.RawMessage
-	if err := json.Unmarshal(credentialsJson, &rawMessage); err != nil {
-		return nil, fmt.Errorf("failed unmarshalling JSON to raw message: %w", err)
-	}
+		var rawMessage json.RawMessage
+		if err := json.Unmarshal(credentialsJson, &rawMessage); err != nil {
+			return nil, fmt.Errorf("failed unmarshalling JSON to raw message: %w", err)
+		}
 
-	return rawMessage, nil
+		return rawMessage, nil
+	})
 }
 
 // Gets or creates an application with the specified name

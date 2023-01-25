@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/apimanagement/armapimanagement"
+	"github.com/azure/azure-dev/cli/azd/internal/telemetry"
 )
 
 type AzCliApim struct {
@@ -19,41 +20,45 @@ func (cli *azCli) GetApim(
 	resourceGroupName string,
 	apimName string,
 ) (*AzCliApim, error) {
-	apimClient, err := cli.createApimClient(ctx, subscriptionId)
-	if err != nil {
-		return nil, err
-	}
+	return telemetry.WithValueSpan(ctx, func(cxt context.Context) (*AzCliApim, error) {
+		apimClient, err := cli.createApimClient(ctx, subscriptionId)
+		if err != nil {
+			return nil, err
+		}
 
-	apim, err := apimClient.Get(ctx, resourceGroupName, apimName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("getting api management service: %w", err)
-	}
+		apim, err := apimClient.Get(ctx, resourceGroupName, apimName, nil)
+		if err != nil {
+			return nil, fmt.Errorf("getting api management service: %w", err)
+		}
 
-	return &AzCliApim{
-		Id:       *apim.ID,
-		Name:     *apim.Name,
-		Location: *apim.Location,
-	}, nil
+		return &AzCliApim{
+			Id:       *apim.ID,
+			Name:     *apim.Name,
+			Location: *apim.Location,
+		}, nil
+	})
 }
 
 func (cli *azCli) PurgeApim(ctx context.Context, subscriptionId string, apimName string, location string) error {
-	apimClient, err := cli.createApimDeletedClient(ctx, subscriptionId)
+	return telemetry.WithSpan(ctx, func(cxt context.Context) error {
+		apimClient, err := cli.createApimDeletedClient(ctx, subscriptionId)
 
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}
 
-	poller, err := apimClient.BeginPurge(ctx, apimName, location, nil)
-	if err != nil {
-		return fmt.Errorf("starting purging api management service: %w", err)
-	}
+		poller, err := apimClient.BeginPurge(ctx, apimName, location, nil)
+		if err != nil {
+			return fmt.Errorf("starting purging api management service: %w", err)
+		}
 
-	_, err = poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("purging api management service: %w", err)
-	}
+		_, err = poller.PollUntilDone(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("purging api management service: %w", err)
+		}
 
-	return nil
+		return nil
+	})
 }
 
 // Creates a APIM soft-deleted service client for ARM control plane operations

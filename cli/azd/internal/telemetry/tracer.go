@@ -5,6 +5,7 @@ package telemetry
 
 import (
 	"context"
+	"runtime"
 
 	"github.com/azure/azure-dev/cli/azd/internal/telemetry/baggage"
 	"github.com/azure/azure-dev/cli/azd/internal/telemetry/fields"
@@ -142,4 +143,46 @@ func (s *wrapperSpan) TracerProvider() trace.TracerProvider {
 // GetTracer returns the application tracer for azd.
 func GetTracer() Tracer {
 	return &wrapperTracer{otel.Tracer(fields.ServiceNameAzd)}
+}
+
+// WithValueSpan runs a function which produces a value in the context of a span. The span is named after the callee. If the
+// function returns an error, the span's status is set to Error.
+func WithValueSpan[T any](ctx context.Context, action func(context.Context) (T, error)) (T, error) {
+	pc, _, _, _ := runtime.Caller(1)
+	f := runtime.FuncForPC(pc)
+	var span Span
+
+	if f != nil {
+		ctx, span = GetTracer().Start(ctx, f.Name())
+		defer span.End()
+	}
+
+	res, err := action(ctx)
+
+	if err != nil && span != nil {
+		span.SetStatus(codes.Error, "UnknownError")
+	}
+
+	return res, err
+}
+
+// WithSpan runs a function which produces no value in the context of a span. The span is named after the callee. If the
+// function returns an error, the span's status is set to Error.
+func WithSpan(ctx context.Context, action func(context.Context) error) error {
+	pc, _, _, _ := runtime.Caller(1)
+	f := runtime.FuncForPC(pc)
+	var span Span
+
+	if f != nil {
+		ctx, span = GetTracer().Start(ctx, f.Name())
+		defer span.End()
+	}
+
+	err := action(ctx)
+
+	if err != nil && span != nil {
+		span.SetStatus(codes.Error, "UnknownError")
+	}
+
+	return err
 }

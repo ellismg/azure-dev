@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
+	"github.com/azure/azure-dev/cli/azd/internal/telemetry"
 )
 
 var (
@@ -43,89 +44,95 @@ type AzCliAccessToken struct {
 }
 
 func (cli *azCli) ListAccounts(ctx context.Context) ([]*AzCliSubscriptionInfo, error) {
-	client, err := cli.createSubscriptionsClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	subscriptions := []*AzCliSubscriptionInfo{}
-	pager := client.NewListPager(nil)
-
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) ([]*AzCliSubscriptionInfo, error) {
+		client, err := cli.createSubscriptionsClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed getting next page of subscriptions: %w", err)
+			return nil, err
 		}
 
-		for _, subscription := range page.SubscriptionListResult.Value {
-			subscriptions = append(subscriptions,
-				&AzCliSubscriptionInfo{
-					Id:       *subscription.SubscriptionID,
-					Name:     *subscription.DisplayName,
-					TenantId: *subscription.TenantID,
-				})
-		}
-	}
+		subscriptions := []*AzCliSubscriptionInfo{}
+		pager := client.NewListPager(nil)
 
-	sort.Slice(subscriptions, func(i, j int) bool {
-		return subscriptions[i].Name < subscriptions[j].Name
+		for pager.More() {
+			page, err := pager.NextPage(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed getting next page of subscriptions: %w", err)
+			}
+
+			for _, subscription := range page.SubscriptionListResult.Value {
+				subscriptions = append(subscriptions,
+					&AzCliSubscriptionInfo{
+						Id:       *subscription.SubscriptionID,
+						Name:     *subscription.DisplayName,
+						TenantId: *subscription.TenantID,
+					})
+			}
+		}
+
+		sort.Slice(subscriptions, func(i, j int) bool {
+			return subscriptions[i].Name < subscriptions[j].Name
+		})
+
+		return subscriptions, nil
 	})
-
-	return subscriptions, nil
 }
 
 func (cli *azCli) GetAccount(ctx context.Context, subscriptionId string) (*AzCliSubscriptionInfo, error) {
-	client, err := cli.createSubscriptionsClient(ctx)
-	if err != nil {
-		return nil, err
-	}
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) (*AzCliSubscriptionInfo, error) {
+		client, err := cli.createSubscriptionsClient(ctx)
+		if err != nil {
+			return nil, err
+		}
 
-	subscription, err := client.Get(ctx, subscriptionId, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed getting subscription for '%s'", subscriptionId)
-	}
+		subscription, err := client.Get(ctx, subscriptionId, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed getting subscription for '%s'", subscriptionId)
+		}
 
-	return &AzCliSubscriptionInfo{
-		Id:       *subscription.SubscriptionID,
-		Name:     *subscription.DisplayName,
-		TenantId: *subscription.TenantID,
-	}, nil
+		return &AzCliSubscriptionInfo{
+			Id:       *subscription.SubscriptionID,
+			Name:     *subscription.DisplayName,
+			TenantId: *subscription.TenantID,
+		}, nil
+	})
 }
 
 func (cli *azCli) ListAccountLocations(ctx context.Context, subscriptionId string) ([]AzCliLocation, error) {
-	client, err := cli.createSubscriptionsClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	locations := []AzCliLocation{}
-	pager := client.NewListLocationsPager(subscriptionId, nil)
-
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) ([]AzCliLocation, error) {
+		client, err := cli.createSubscriptionsClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed getting next page of locations: %w", err)
+			return nil, err
 		}
 
-		for _, location := range page.LocationListResult.Value {
-			// Ignore non-physical locations
-			if *location.Metadata.RegionType != "Physical" {
-				continue
+		locations := []AzCliLocation{}
+		pager := client.NewListLocationsPager(subscriptionId, nil)
+
+		for pager.More() {
+			page, err := pager.NextPage(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed getting next page of locations: %w", err)
 			}
 
-			locations = append(locations, AzCliLocation{
-				Name:                *location.Name,
-				DisplayName:         *location.DisplayName,
-				RegionalDisplayName: *location.RegionalDisplayName,
-			})
+			for _, location := range page.LocationListResult.Value {
+				// Ignore non-physical locations
+				if *location.Metadata.RegionType != "Physical" {
+					continue
+				}
+
+				locations = append(locations, AzCliLocation{
+					Name:                *location.Name,
+					DisplayName:         *location.DisplayName,
+					RegionalDisplayName: *location.RegionalDisplayName,
+				})
+			}
 		}
-	}
 
-	sort.Slice(locations, func(i, j int) bool {
-		return locations[i].RegionalDisplayName < locations[j].RegionalDisplayName
+		sort.Slice(locations, func(i, j int) bool {
+			return locations[i].RegionalDisplayName < locations[j].RegionalDisplayName
+		})
+
+		return locations, nil
 	})
-
-	return locations, nil
 }
 
 func (cli *azCli) createSubscriptionsClient(ctx context.Context) (*armsubscriptions.Client, error) {
@@ -139,26 +146,28 @@ func (cli *azCli) createSubscriptionsClient(ctx context.Context) (*armsubscripti
 }
 
 func (cli *azCli) GetAccessToken(ctx context.Context) (*AzCliAccessToken, error) {
-	token, err := cli.credential.GetToken(ctx, policy.TokenRequestOptions{
-		Scopes: []string{
-			fmt.Sprintf("%s/.default", cloud.AzurePublic.Services[cloud.ResourceManager].Audience),
-		},
-	})
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) (*AzCliAccessToken, error) {
+		token, err := cli.credential.GetToken(ctx, policy.TokenRequestOptions{
+			Scopes: []string{
+				fmt.Sprintf("%s/.default", cloud.AzurePublic.Services[cloud.ResourceManager].Audience),
+			},
+		})
 
-	if err != nil {
-		if isNotLoggedInMessage(err.Error()) {
-			return nil, ErrAzCliNotLoggedIn
-		} else if isRefreshTokenExpiredMessage(err.Error()) {
-			return nil, ErrAzCliRefreshTokenExpired
+		if err != nil {
+			if isNotLoggedInMessage(err.Error()) {
+				return nil, ErrAzCliNotLoggedIn
+			} else if isRefreshTokenExpiredMessage(err.Error()) {
+				return nil, ErrAzCliRefreshTokenExpired
+			}
+
+			return nil, fmt.Errorf("failed retrieving access token: %w", err)
 		}
 
-		return nil, fmt.Errorf("failed retrieving access token: %w", err)
-	}
-
-	return &AzCliAccessToken{
-		AccessToken: token.Token,
-		ExpiresOn:   &token.ExpiresOn,
-	}, nil
+		return &AzCliAccessToken{
+			AccessToken: token.Token,
+			ExpiresOn:   &token.ExpiresOn,
+		}, nil
+	})
 }
 
 func isNotLoggedInMessage(s string) bool {

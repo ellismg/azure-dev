@@ -211,33 +211,36 @@ func downloadBicep(ctx context.Context, transporter policy.Transporter, bicepVer
 }
 
 func (cli *bicepCli) version(ctx context.Context) (semver.Version, error) {
-	bicepRes, err := cli.runCommand(ctx, "--version")
-	if err != nil {
-		return semver.Version{}, err
-	}
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) (semver.Version, error) {
+		bicepRes, err := cli.runCommand(ctx, "--version")
+		if err != nil {
+			return semver.Version{}, err
+		}
 
-	bicepSemver, err := tools.ExtractVersion(bicepRes.Stdout)
-	if err != nil {
-		return semver.Version{}, err
-	}
+		bicepSemver, err := tools.ExtractVersion(bicepRes.Stdout)
+		if err != nil {
+			return semver.Version{}, err
+		}
 
-	return bicepSemver, nil
-
+		return bicepSemver, nil
+	})
 }
 
 func (cli *bicepCli) Build(ctx context.Context, file string) (string, error) {
-	args := []string{"build", file, "--stdout"}
-	buildRes, err := cli.runCommand(ctx, args...)
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) (string, error) {
+		args := []string{"build", file, "--stdout"}
+		buildRes, err := cli.runCommand(ctx, args...)
 
-	if err != nil {
-		return "", fmt.Errorf(
-			"failed running bicep build: %s (%w)",
-			buildRes.String(),
-			err,
-		)
-	}
+		if err != nil {
+			return "", fmt.Errorf(
+				"failed running bicep build: %s (%w)",
+				buildRes.String(),
+				err,
+			)
+		}
 
-	return buildRes.Stdout, nil
+		return buildRes.Stdout, nil
+	})
 }
 
 func (cli *bicepCli) runCommand(ctx context.Context, args ...string) (exec.RunResult, error) {

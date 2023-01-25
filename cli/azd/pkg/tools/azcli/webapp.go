@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/appservice/armappservice"
+	"github.com/azure/azure-dev/cli/azd/internal/telemetry"
 	"github.com/azure/azure-dev/cli/azd/pkg/azsdk"
 	"github.com/azure/azure-dev/cli/azd/pkg/convert"
 )
@@ -20,19 +21,21 @@ func (cli *azCli) GetAppServiceProperties(
 	resourceGroup string,
 	appName string,
 ) (*AzCliAppServiceProperties, error) {
-	client, err := cli.createWebAppsClient(ctx, subscriptionId)
-	if err != nil {
-		return nil, err
-	}
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) (*AzCliAppServiceProperties, error) {
+		client, err := cli.createWebAppsClient(ctx, subscriptionId)
+		if err != nil {
+			return nil, err
+		}
 
-	webApp, err := client.Get(ctx, resourceGroup, appName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed retrieving webapp properties: %w", err)
-	}
+		webApp, err := client.Get(ctx, resourceGroup, appName, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed retrieving webapp properties: %w", err)
+		}
 
-	return &AzCliAppServiceProperties{
-		HostNames: []string{*webApp.Properties.DefaultHostName},
-	}, nil
+		return &AzCliAppServiceProperties{
+			HostNames: []string{*webApp.Properties.DefaultHostName},
+		}, nil
+	})
 }
 
 func (cli *azCli) DeployAppServiceZip(
@@ -42,17 +45,19 @@ func (cli *azCli) DeployAppServiceZip(
 	appName string,
 	deployZipFile io.Reader,
 ) (*string, error) {
-	client, err := cli.createZipDeployClient(ctx, subscriptionId)
-	if err != nil {
-		return nil, err
-	}
+	return telemetry.WithValueSpan(ctx, func(ctx context.Context) (*string, error) {
+		client, err := cli.createZipDeployClient(ctx, subscriptionId)
+		if err != nil {
+			return nil, err
+		}
 
-	response, err := client.Deploy(ctx, appName, deployZipFile)
-	if err != nil {
-		return nil, err
-	}
+		response, err := client.Deploy(ctx, appName, deployZipFile)
+		if err != nil {
+			return nil, err
+		}
 
-	return convert.RefOf(response.StatusText), nil
+		return convert.RefOf(response.StatusText), nil
+	})
 }
 
 func (cli *azCli) createWebAppsClient(ctx context.Context, subscriptionId string) (*armappservice.WebAppsClient, error) {

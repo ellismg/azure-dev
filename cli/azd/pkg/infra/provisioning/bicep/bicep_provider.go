@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/azure/azure-dev/cli/azd/internal/telemetry"
 	"github.com/azure/azure-dev/cli/azd/pkg/async"
 	"github.com/azure/azure-dev/cli/azd/pkg/azure"
 	"github.com/azure/azure-dev/cli/azd/pkg/cmdsubst"
@@ -183,6 +184,9 @@ func (p *BicepProvider) Deploy(
 
 			// Report incremental progress
 			go func() {
+				ctx, span := telemetry.GetTracer().Start(ctx, "bicep.provision.progress")
+				defer span.End()
+
 				resourceManager := infra.NewAzureResourceManager(p.azCli)
 				progressDisplay := NewProvisioningProgressDisplay(resourceManager, p.console, scope)
 				// Make initial delay shorter to be more responsive in displaying initial progress

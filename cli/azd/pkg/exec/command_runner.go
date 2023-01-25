@@ -13,6 +13,10 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/azure/azure-dev/cli/azd/internal/telemetry"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 // CommandRunner exposes the contract for executing console/shell commands for the specified runArgs
@@ -76,7 +80,17 @@ func (r *commandRunner) Run(ctx context.Context, args RunArgs) (RunResult, error
 		}
 	}
 
-	log.Printf("Run exec: '%s %s'", args.Cmd, redactSensitiveData(strings.Join(args.Args, " ")))
+	ctx, span := telemetry.GetTracer().Start(ctx, "external.cmd")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("process.cmd", args.Cmd))
+	redactedArgs := make([]string, len(args.Args))
+	for i, arg := range args.Args {
+		redactedArgs[i] = redactSensitiveData(arg)
+	}
+	span.SetAttributes(attribute.StringSlice("process.args", redactedArgs))
+
+	log.Printf("Run exec: '%s %s'", args.Cmd, strings.Join(redactedArgs, " "))
 
 	if args.Debug && len(args.Env) > 0 {
 		log.Println("Additional env:")
@@ -86,6 +100,7 @@ func (r *commandRunner) Run(ctx context.Context, args RunArgs) (RunResult, error
 	}
 
 	if err := cmd.Start(); err != nil {
+		span.SetStatus(codes.Error, "command start error")
 		return RunResult{}, err
 	}
 
@@ -123,8 +138,14 @@ func (r *commandRunner) Run(ctx context.Context, args RunArgs) (RunResult, error
 		}
 	}
 
+	span.SetAttributes(attribute.Int("process.exitCode", cmd.ProcessState.ExitCode()))
+
 	if err != nil && args.EnrichError {
 		err = fmt.Errorf("%s: %w", result, err)
+	}
+
+	if err != nil {
+		span.SetStatus(codes.Error, "command error")
 	}
 
 	return result, err

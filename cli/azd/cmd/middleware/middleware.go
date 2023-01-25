@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/azure/azure-dev/cli/azd/cmd/actions"
+	"github.com/azure/azure-dev/cli/azd/internal/telemetry"
 	"github.com/azure/azure-dev/cli/azd/pkg/ioc"
 )
 
@@ -106,6 +107,9 @@ func (r *MiddlewareRunner) RunAction(
 			log.Printf("running middleware '%s'\n", middlewareName)
 			return middleware.Run(ctx, nextFn)
 		} else {
+			ctx, span := telemetry.GetTracer().Start(ctx, fmt.Sprintf("%T", action))
+			defer span.End()
+
 			return action.Run(ctx)
 		}
 	}
