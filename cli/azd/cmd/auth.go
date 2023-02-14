@@ -21,5 +21,13 @@ func authActions(root *actions.ActionDescriptor) *actions.ActionDescriptor {
 		DefaultFormat:  output.NoneFormat,
 	})
 
+	group.Add("token", &actions.ActionDescriptorOptions{
+		Command:        newAuthServerCmd(),
+		FlagsResolver:  newAuthServerFlags,
+		ActionResolver: newAuthServerAction,
+		OutputFormats:  []output.Format{output.NoneFormat},
+		DefaultFormat:  output.NoneFormat,
+	})
+
 	return group
 }
