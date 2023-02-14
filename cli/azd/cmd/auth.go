@@ -25,7 +25,7 @@ func authActions(root *actions.ActionDescriptor) *actions.ActionDescriptor {
 		Command:        newAuthServerCmd(),
 		FlagsResolver:  newAuthServerFlags,
 		ActionResolver: newAuthServerAction,
-		OutputFormats:  []output.Format{output.NoneFormat},
+		OutputFormats:  []output.Format{output.NoneFormat, output.JsonFormat},
 		DefaultFormat:  output.NoneFormat,
 	})
 

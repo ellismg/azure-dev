@@ -166,7 +166,17 @@ func (a *authServerAction) Run(ctx context.Context) (*actions.ActionResult, erro
 
 		return nil, cmd.Run()
 	} else {
-		_, _ = fmt.Fprintf(a.writer, "Listening on %s, token: %s\n", l.Addr().String(), token)
+		if a.formatter.Kind() == output.JsonFormat {
+			_ = a.formatter.Format(struct {
+				Endpoint string `json:"endpoint"`
+				Token    string `json:"token"`
+			}{
+				Endpoint: fmt.Sprintf("http://%s/api/token", l.Addr().String()),
+				Token:    token,
+			}, a.writer, nil)
+		} else {
+			_, _ = fmt.Fprintf(a.writer, "endpoint: http://%s/api/token, token: %s\n", l.Addr().String(), token)
+		}
 
 		return nil, srv.Serve(l)
 	}
