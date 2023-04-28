@@ -6,7 +6,10 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
+	"github.com/azure/azure-dev/cli/azd/pkg/azure"
 	"github.com/azure/azure-dev/cli/azd/pkg/convert"
 	"github.com/azure/azure-dev/cli/azd/pkg/graphsdk"
 	"github.com/azure/azure-dev/cli/azd/test/mocks"
@@ -20,6 +23,35 @@ var expectedServicePrincipalCredential AzureCredentials = AzureCredentials{
 	SubscriptionId:             "SUBSCRIPTION_ID",
 	TenantId:                   "TENANT_ID",
 	ResourceManagerEndpointUrl: "https://management.azure.com/",
+}
+
+func Test_Foo(t *testing.T) {
+	subscriptionId := "faa080af-c1d8-40ad-9cce-e1a450ca5b57"
+	cred, err := azidentity.NewAzureCLICredential(nil)
+	require.NoError(t, err)
+
+	azCli := NewAzCli(
+		&staticCredProvider{
+			cred: cred,
+		},
+		http.DefaultClient,
+		NewAzCliArgs{},
+	).(*azCli)
+
+	def, err := azCli.getRoleDefinition(
+		context.Background(),
+		subscriptionId,
+		azure.SubscriptionRID(subscriptionId),
+		"Owner")
+	_, _ = def, err
+}
+
+type staticCredProvider struct {
+	cred azcore.TokenCredential
+}
+
+func (p *staticCredProvider) CredentialForSubscription(_ context.Context, _ string) (azcore.TokenCredential, error) {
+	return azcore.TokenCredential(p.cred), nil
 }
 
 func Test_CreateOrUpdateServicePrincipal(t *testing.T) {
@@ -49,9 +81,14 @@ func Test_CreateOrUpdateServicePrincipal(t *testing.T) {
 	}
 	roleDefinitions := []*armauthorization.RoleDefinition{
 		{
-			ID:   convert.RefOf("ROLE_ID"),
+			ID:   convert.RefOf("ROLE_ID_1"),
 			Name: convert.RefOf("Contributor"),
-			Type: convert.RefOf("ROLE_TYPE"),
+			Type: convert.RefOf("ROLE_TYPE_1"),
+		},
+		{
+			ID:   convert.RefOf("ROLE_ID_2"),
+			Name: convert.RefOf("Owner"),
+			Type: convert.RefOf("ROLE_TYPE_2"),
 		},
 	}
 
