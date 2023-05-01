@@ -51,6 +51,9 @@ type BicepDeploymentDetails struct {
 	Parameters azure.ArmParameters
 	// TemplateOutputs are the outputs as specified by the template.
 	TemplateOutputs azure.ArmTemplateOutputs
+	// Target is the resource in azure that represents the deployment that will happen. This includes the scope as well as
+	// the name of the deployment.
+	Target infra.Deployment
 }
 
 // BicepProvider exposes infrastructure provisioning using Azure Bicep templates
@@ -80,10 +83,16 @@ func (p *BicepProvider) EnsureConfigured(ctx context.Context) error {
 
 func (p *BicepProvider) State(
 	ctx context.Context,
-	scope infra.Scope,
 ) *async.InteractiveTaskWithProgress[*StateResult, *StateProgress] {
 	return async.RunInteractiveTaskWithProgress(
 		func(asyncContext *async.InteractiveTaskContextWithProgress[*StateResult, *StateProgress]) {
+			target := infra.NewSubscriptionDeployment(
+				p.azCli,
+				p.env.GetLocation(),
+				p.env.GetSubscriptionId(),
+				p.env.GetEnvName(),
+			)
+
 			asyncContext.SetProgress(&StateProgress{Message: "Loading Bicep template", Timestamp: time.Now()})
 			modulePath := p.modulePath()
 			_, template, err := p.compileBicep(ctx, modulePath)
@@ -93,7 +102,7 @@ func (p *BicepProvider) State(
 			}
 
 			asyncContext.SetProgress(&StateProgress{Message: "Retrieving Azure deployment", Timestamp: time.Now()})
-			armDeployment, err := scope.GetDeployment(ctx)
+			armDeployment, err := target.Deployment(ctx)
 			if err != nil {
 				asyncContext.SetError(fmt.Errorf("retrieving deployment: %w", err))
 				return
@@ -159,12 +168,20 @@ func (p *BicepProvider) Plan(
 				return
 			}
 
+			target := infra.NewSubscriptionDeployment(
+				p.azCli,
+				p.env.GetLocation(),
+				p.env.GetSubscriptionId(),
+				p.env.GetEnvName(),
+			)
+
 			result := DeploymentPlan{
 				Deployment: *deployment,
 				Details: BicepDeploymentDetails{
 					Template:        rawTemplate,
 					TemplateOutputs: template.Outputs,
 					Parameters:      configuredParameters,
+					Target:          target,
 				},
 			}
 			// remove the spinner with no message as no message is expected
@@ -177,7 +194,6 @@ func (p *BicepProvider) Plan(
 func (p *BicepProvider) Deploy(
 	ctx context.Context,
 	pd *DeploymentPlan,
-	scope infra.Scope,
 ) *async.InteractiveTaskWithProgress[*DeployResult, *DeployProgress] {
 	return async.RunInteractiveTaskWithProgress(
 		func(asyncContext *async.InteractiveTaskContextWithProgress[*DeployResult, *DeployProgress]) {
@@ -188,10 +204,12 @@ func (p *BicepProvider) Deploy(
 				done <- true
 			}()
 
+			bicepDeploymentData := pd.Details.(BicepDeploymentDetails)
+
 			// Report incremental progress
 			go func() {
 				resourceManager := infra.NewAzureResourceManager(p.azCli)
-				progressDisplay := NewProvisioningProgressDisplay(resourceManager, p.console, scope)
+				progressDisplay := NewProvisioningProgressDisplay(resourceManager, p.console, bicepDeploymentData.Target)
 				// Make initial delay shorter to be more responsive in displaying initial progress
 				initialDelay := 3 * time.Second
 				regularDelay := 10 * time.Second
@@ -218,9 +236,13 @@ func (p *BicepProvider) Deploy(
 
 			// Start the deployment
 			p.console.ShowSpinner(ctx, "Creating/Updating resources", input.Step)
-			bicepDeploymentData := pd.Details.(BicepDeploymentDetails)
 
-			deployResult, err := p.deployModule(ctx, scope, bicepDeploymentData.Template, bicepDeploymentData.Parameters)
+			deployResult, err := p.deployModule(
+				ctx,
+				bicepDeploymentData.Target,
+				bicepDeploymentData.Template,
+				bicepDeploymentData.Parameters,
+			)
 			if err != nil {
 				asyncContext.SetError(err)
 				return
@@ -333,7 +355,6 @@ func (p *BicepProvider) Destroy(
 				asyncContext.SetError(fmt.Errorf("purging resources: %w", err))
 				return
 			}
-
 			if err := p.deleteDeployment(ctx); err != nil {
 				asyncContext.SetError(fmt.Errorf("deleting subscription deployment: %w", err))
 				return
@@ -709,7 +730,6 @@ func (p *BicepProvider) deleteDeployment(ctx context.Context) error {
 	p.console.StopSpinner(ctx, message, input.GetStepResultFormat(err))
 	return err
 }
-
 func (p *BicepProvider) mapBicepTypeToInterfaceType(s string) ParameterType {
 	switch s {
 	case "String", "string", "secureString", "securestring":
@@ -853,11 +873,11 @@ func (p *BicepProvider) convertToDeployment(bicepTemplate azure.ArmTemplate) (*D
 // Deploys the specified Bicep module and parameters with the selected provisioning scope (subscription vs resource group)
 func (p *BicepProvider) deployModule(
 	ctx context.Context,
-	scope infra.Scope,
+	target infra.Deployment,
 	armTemplate azure.RawArmTemplate,
 	armParameters azure.ArmParameters,
 ) (*armresources.DeploymentExtended, error) {
-	return scope.Deploy(ctx, armTemplate, armParameters)
+	return target.Deploy(ctx, armTemplate, armParameters)
 }
 
 // Gets the path to the project parameters file path
