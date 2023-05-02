@@ -506,6 +506,26 @@ func prepareStateMocks(mockContext *mocks.MockContext) {
 			Body:       io.NopCloser(bytes.NewBuffer(deployResultBytes)),
 		}, nil
 	})
+
+	deploymentsPage := &armresources.DeploymentListResult{
+		Value: []*armresources.DeploymentExtended{
+			&cTestEnvDeployment,
+		},
+	}
+
+	deploymentsPageResultBytes, _ := json.Marshal(deploymentsPage)
+
+	mockContext.HttpClient.When(func(request *http.Request) bool {
+		return request.Method == http.MethodGet && strings.HasSuffix(
+			request.URL.Path,
+			"/SUBSCRIPTION_ID/providers/Microsoft.Resources/deployments/",
+		)
+	}).RespondFn(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewBuffer(deploymentsPageResultBytes)),
+		}, nil
+	})
 }
 
 func prepareDeployMocks(mockContext *mocks.MockContext) {
