@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/azure/azure-dev/cli/azd/pkg/alpha"
 	"github.com/azure/azure-dev/cli/azd/pkg/async"
 	"github.com/azure/azure-dev/cli/azd/pkg/environment"
 	"github.com/azure/azure-dev/cli/azd/pkg/ext"
+	"github.com/azure/azure-dev/cli/azd/pkg/infra"
 	"github.com/azure/azure-dev/cli/azd/pkg/ioc"
 	"github.com/azure/azure-dev/cli/azd/pkg/tools"
 )
@@ -395,10 +397,37 @@ func (sm *serviceManager) Deploy(
 			return
 		}
 
-		targetResource, err := sm.resourceManager.GetTargetResource(ctx, sm.env.GetSubscriptionId(), serviceConfig)
-		if err != nil {
-			task.SetError(fmt.Errorf("getting target resource: %w", err))
-			return
+		var targetResource *environment.TargetResource
+
+		if serviceConfig.Host == ContainerAppTarget {
+			containerEnvName := sm.env.GetServiceProperty(serviceConfig.Name, "CONTAINER_ENVIRONMENT_NAME")
+			if containerEnvName == "" {
+				task.SetError(fmt.Errorf(
+					"could not determine container app environment for service %s, "+
+						"have you set SERVICE_%s_CONTAINER_ENVIRONMENT_NAME as an output of your "+
+						"infrastructure?", serviceConfig.Name, strings.ToUpper(serviceConfig.Name)))
+				return
+			}
+
+			resourceGroupName, err := sm.resourceManager.GetResourceGroupName(
+				ctx, sm.env.GetSubscriptionId(), serviceConfig.Project)
+			if err != nil {
+				task.SetError(fmt.Errorf("getting resource group name: %w", err))
+				return
+			}
+
+			targetResource = environment.NewTargetResource(
+				sm.env.GetSubscriptionId(),
+				resourceGroupName,
+				containerEnvName,
+				string(infra.AzureResourceTypeContainerAppEnvironment),
+			)
+		} else {
+			targetResource, err = sm.resourceManager.GetTargetResource(ctx, sm.env.GetSubscriptionId(), serviceConfig)
+			if err != nil {
+				task.SetError(fmt.Errorf("getting target resource: %w", err))
+				return
+			}
 		}
 
 		deployResult, err := runCommand(

@@ -6,6 +6,8 @@ package project
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/azure/azure-dev/cli/azd/pkg/async"
 	"github.com/azure/azure-dev/cli/azd/pkg/azure"
@@ -13,6 +15,7 @@ import (
 	"github.com/azure/azure-dev/cli/azd/pkg/environment"
 	"github.com/azure/azure-dev/cli/azd/pkg/infra"
 	"github.com/azure/azure-dev/cli/azd/pkg/tools"
+	"github.com/drone/envsubst"
 )
 
 type containerAppTarget struct {
@@ -84,14 +87,26 @@ func (at *containerAppTarget) Deploy(
 				return
 			}
 
-			imageName := at.env.GetServiceProperty(serviceConfig.Name, "IMAGE_NAME")
-			task.SetProgress(NewServiceProgress("Updating container app revision"))
-			err = at.containerAppService.AddRevision(
+			task.SetProgress(NewServiceProgress("Updating container app"))
+
+			templateBytes, err := os.ReadFile(filepath.Join(serviceConfig.Path(), "containerApp.yaml"))
+			if err != nil {
+				task.SetError(fmt.Errorf("failing reading containerApp.yaml: %w", err))
+				return
+			}
+
+			replaced, err := envsubst.Eval(string(templateBytes), at.env.Getenv)
+			if err != nil {
+				task.SetError(fmt.Errorf("substituting variables containerApp.yaml: %w", err))
+				return
+			}
+
+			err = at.containerAppService.DeployYaml(
 				ctx,
 				targetResource.SubscriptionId(),
 				targetResource.ResourceGroupName(),
 				targetResource.ResourceName(),
-				imageName,
+				[]byte(replaced),
 			)
 			if err != nil {
 				task.SetError(fmt.Errorf("updating container app service: %w", err))
@@ -152,7 +167,7 @@ func (at *containerAppTarget) validateTargetResource(
 	}
 
 	if targetResource.ResourceType() != "" {
-		if err := checkResourceType(targetResource, infra.AzureResourceTypeContainerApp); err != nil {
+		if err := checkResourceType(targetResource, infra.AzureResourceTypeContainerAppEnvironment); err != nil {
 			return err
 		}
 	}

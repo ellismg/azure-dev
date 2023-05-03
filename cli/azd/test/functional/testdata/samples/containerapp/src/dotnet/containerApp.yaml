@@ -1,0 +1,17 @@
+location: ${AZURE_LOCATION}
+tags: 
+  azd-env-name: ${AZURE_ENV_NAME}
+  azd-service-name: web
+properties:
+  managedEnvironmentId: ${SERVICE_WEB_CONTAINER_ENVIRONMENT_ID}
+  configuration:
+    activeRevisionsMode: single
+    ingress:
+      external: true
+      targetPort: 3100
+      transport: auto
+  template:
+    containers:
+      - image: ${SERVICE_WEB_IMAGE_NAME}
+        name: main
+        env: []
