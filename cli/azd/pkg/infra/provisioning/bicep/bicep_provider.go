@@ -87,17 +87,40 @@ func (p *BicepProvider) State(
 ) *async.InteractiveTaskWithProgress[*StateResult, *StateProgress] {
 	return async.RunInteractiveTaskWithProgress(
 		func(asyncContext *async.InteractiveTaskContextWithProgress[*StateResult, *StateProgress]) {
-			scope := infra.NewSubscriptionScope(
-				p.azCli,
-				p.env.GetSubscriptionId(),
-			)
-
 			asyncContext.SetProgress(&StateProgress{Message: "Loading Bicep template", Timestamp: time.Now()})
 			modulePath := p.modulePath()
 			_, template, err := p.compileBicep(ctx, modulePath)
 			if err != nil {
 				asyncContext.SetError(fmt.Errorf("compiling bicep template: %w", err))
 				return
+			}
+
+			var scope infra.Scope
+
+			switch template.TargetScope() {
+			case azure.DeploymentScopeSubscription:
+				scope = infra.NewSubscriptionScope(
+					p.azCli,
+					p.env.GetSubscriptionId(),
+				)
+			case azure.DeploymentScopeResourceGroup:
+				if p.env.Getenv(environment.ResourceGroupEnvVarName) == "" {
+					asyncContext.SetError(
+						fmt.Errorf(
+							"%s must be set to the name of the resource group to use",
+							environment.ResourceGroupEnvVarName,
+						),
+					)
+					return
+				}
+
+				scope = infra.NewResourceGroupScope(
+					p.azCli,
+					p.env.GetSubscriptionId(),
+					p.env.Getenv(environment.ResourceGroupEnvVarName),
+				)
+			default:
+				panic(fmt.Sprintf("unknown template target scope: %s", template.TargetScope()))
 			}
 
 			asyncContext.SetProgress(&StateProgress{Message: "Retrieving Azure deployment", Timestamp: time.Now()})
@@ -167,12 +190,36 @@ func (p *BicepProvider) Plan(
 				return
 			}
 
-			target := infra.NewSubscriptionDeployment(
-				p.azCli,
-				p.env.GetLocation(),
-				p.env.GetSubscriptionId(),
-				fmt.Sprintf("%s-%d", p.env.GetEnvName(), time.Now().Unix()),
-			)
+			var target infra.Deployment
+
+			switch template.TargetScope() {
+			case azure.DeploymentScopeSubscription:
+				target = infra.NewSubscriptionDeployment(
+					p.azCli,
+					p.env.GetLocation(),
+					p.env.GetSubscriptionId(),
+					fmt.Sprintf("%s-%d", p.env.GetEnvName(), time.Now().Unix()),
+				)
+			case azure.DeploymentScopeResourceGroup:
+				if p.env.Getenv(environment.ResourceGroupEnvVarName) == "" {
+					asyncContext.SetError(
+						fmt.Errorf(
+							"%s must be set to the name of the resource group to use",
+							environment.ResourceGroupEnvVarName,
+						),
+					)
+					return
+				}
+
+				target = infra.NewResourceGroupDeployment(
+					p.azCli,
+					p.env.GetSubscriptionId(),
+					p.env.Getenv(environment.ResourceGroupEnvVarName),
+					fmt.Sprintf("%s-%d", p.env.GetEnvName(), time.Now().Unix()),
+				)
+			default:
+				panic(fmt.Sprintf("unknown template target scope: %s", template.TargetScope()))
+			}
 
 			result := DeploymentPlan{
 				Deployment: *deployment,
@@ -183,6 +230,7 @@ func (p *BicepProvider) Plan(
 					Target:          target,
 				},
 			}
+
 			// remove the spinner with no message as no message is expected
 			p.console.StopSpinner(ctx, "", input.StepDone)
 			asyncContext.SetResult(&result)
