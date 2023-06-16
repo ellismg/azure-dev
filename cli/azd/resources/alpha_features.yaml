@@ -4,3 +4,5 @@
   description: "Support Azure Spring Apps as service target."
 - id: resourceGroupDeployments
   description: "Support infrastructure deployments at resource group scope."
+- id: validateDeployment
+  description: "Run ARM Validation before provisioning resources. This may catch errors like incorrect parameters or capacity limits, at the expense of longer end to end provisioning times."

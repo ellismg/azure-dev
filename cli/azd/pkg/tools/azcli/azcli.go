@@ -106,6 +106,15 @@ type AzCli interface {
 		resourceGroup string,
 		funcName string,
 	) (*AzCliFunctionAppProperties, error)
+	ValidateDeploymentForSubscription(
+		ctx context.Context,
+		subscriptionId string,
+		location string,
+		deploymentName string,
+		armTemplate azure.RawArmTemplate,
+		parameters azure.ArmParameters,
+		tags map[string]*string,
+	) (*armresources.DeploymentValidateResult, error)
 	DeployToSubscription(
 		ctx context.Context,
 		subscriptionId string,
@@ -115,6 +124,15 @@ type AzCli interface {
 		parameters azure.ArmParameters,
 		tags map[string]*string,
 	) (*armresources.DeploymentExtended, error)
+	ValidateDeploymentForResourceGroup(
+		ctx context.Context,
+		subscriptionId,
+		resourceGroup,
+		deploymentName string,
+		armTemplate azure.RawArmTemplate,
+		parameters azure.ArmParameters,
+		tags map[string]*string,
+	) (*armresources.DeploymentValidateResult, error)
 	DeployToResourceGroup(
 		ctx context.Context,
 		subscriptionId,

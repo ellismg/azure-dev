@@ -154,6 +154,7 @@ func (p *BicepProvider) State(ctx context.Context) (*StateResult, error) {
 }
 
 var ResourceGroupDeploymentFeature = alpha.MustFeatureKey("resourceGroupDeployments")
+var ValidateDeploymentFeature = alpha.MustFeatureKey("validateDeployment")
 
 // Plans the infrastructure provisioning
 func (p *BicepProvider) Plan(ctx context.Context) (*DeploymentPlan, error) {
@@ -223,6 +224,25 @@ func (p *BicepProvider) Plan(ctx context.Context) (*DeploymentPlan, error) {
 		)
 	} else {
 		return nil, fmt.Errorf("unsupported scope: %s", deploymentScope)
+	}
+
+	if p.alphaFeatureManager.IsEnabled(ValidateDeploymentFeature) {
+		p.console.WarnForFeature(ctx, ValidateDeploymentFeature)
+
+		p.console.ShowSpinner(ctx, "Validating deployment", input.Step)
+
+		validateStart := time.Now()
+
+		res, err := target.Validate(ctx, rawTemplate, configuredParameters, nil)
+		if err != nil {
+			return nil, fmt.Errorf("validating deployment: %w", err)
+		}
+
+		log.Printf("validation took %s", time.Since(validateStart).String())
+
+		if res.Error != nil {
+			return nil, fmt.Errorf("validating deployment: %s", *res.Error.Message)
+		}
 	}
 
 	return &DeploymentPlan{

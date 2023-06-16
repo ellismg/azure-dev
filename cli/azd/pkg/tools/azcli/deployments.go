@@ -127,6 +127,48 @@ func (cli *azCli) createDeploymentsClient(
 	return client, nil
 }
 
+func (cli *azCli) ValidateDeploymentForSubscription(
+	ctx context.Context,
+	subscriptionId string,
+	location string,
+	deploymentName string,
+	armTemplate azure.RawArmTemplate,
+	parameters azure.ArmParameters,
+	tags map[string]*string,
+) (*armresources.DeploymentValidateResult, error) {
+	deploymentClient, err := cli.createDeploymentsClient(ctx, subscriptionId)
+	if err != nil {
+		return nil, fmt.Errorf("creating deployments client: %w", err)
+	}
+
+	validateTemplateOperation, err := deploymentClient.BeginValidateAtSubscriptionScope(
+		ctx, deploymentName,
+		armresources.Deployment{
+			Properties: &armresources.DeploymentProperties{
+				Template:   armTemplate,
+				Parameters: parameters,
+				Mode:       to.Ptr(armresources.DeploymentModeIncremental),
+			},
+			Location: to.Ptr(location),
+			Tags:     tags,
+		}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("starting deployment to subscription: %w", err)
+	}
+
+	// wait for deployment creation
+	validateResult, err := validateTemplateOperation.PollUntilDone(ctx, nil)
+	if err != nil {
+		deploymentError := createDeploymentError(err)
+		return nil, fmt.Errorf(
+			"deploying to subscription:\n\nDeployment Error Details:\n%w",
+			deploymentError,
+		)
+	}
+
+	return &validateResult.DeploymentValidateResult, nil
+}
+
 func (cli *azCli) DeployToSubscription(
 	ctx context.Context,
 	subscriptionId string,
@@ -153,7 +195,7 @@ func (cli *azCli) DeployToSubscription(
 			Tags:     tags,
 		}, nil)
 	if err != nil {
-		return nil, fmt.Errorf("starting deployment to subscription: %w", err)
+		return nil, fmt.Errorf("starting validate: %w", err)
 	}
 
 	// wait for deployment creation
@@ -161,12 +203,53 @@ func (cli *azCli) DeployToSubscription(
 	if err != nil {
 		deploymentError := createDeploymentError(err)
 		return nil, fmt.Errorf(
-			"deploying to subscription:\n\nDeployment Error Details:\n%w",
+			"validating:\n\nDeployment Error Details:\n%w",
 			deploymentError,
 		)
 	}
 
 	return &deployResult.DeploymentExtended, nil
+}
+
+func (cli *azCli) ValidateDeploymentForResourceGroup(
+	ctx context.Context,
+	subscriptionId string,
+	resourceGroupName string,
+	deploymentName string,
+	armTemplate azure.RawArmTemplate,
+	parameters azure.ArmParameters,
+	tags map[string]*string,
+) (*armresources.DeploymentValidateResult, error) {
+	deploymentClient, err := cli.createDeploymentsClient(ctx, subscriptionId)
+	if err != nil {
+		return nil, fmt.Errorf("creating deployments client: %w", err)
+	}
+
+	validateTemplateOperation, err := deploymentClient.BeginValidate(
+		ctx, resourceGroupName, deploymentName,
+		armresources.Deployment{
+			Properties: &armresources.DeploymentProperties{
+				Template:   armTemplate,
+				Parameters: parameters,
+				Mode:       to.Ptr(armresources.DeploymentModeIncremental),
+			},
+			Tags: tags,
+		}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("starting validate: %w", err)
+	}
+
+	// wait for deployment creation
+	validateResult, err := validateTemplateOperation.PollUntilDone(ctx, nil)
+	if err != nil {
+		deploymentError := createDeploymentError(err)
+		return nil, fmt.Errorf(
+			"validating:\n\nDeployment Error Details:\n%w",
+			deploymentError,
+		)
+	}
+
+	return &validateResult.DeploymentValidateResult, nil
 }
 
 func (cli *azCli) DeployToResourceGroup(

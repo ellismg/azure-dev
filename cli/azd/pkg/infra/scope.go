@@ -26,6 +26,13 @@ type Deployment interface {
 	Name() string
 	// PortalUrl is the URL that may be used to view this deployment in Azure Portal.
 	PortalUrl() string
+	// Validate a given template with a set of parameters.
+	Validate(
+		ctx context.Context,
+		template azure.RawArmTemplate,
+		parameters azure.ArmParameters,
+		tags map[string]*string,
+	) (*armresources.DeploymentValidateResult, error)
 	// Deploy a given template with a set of parameters.
 	Deploy(
 		ctx context.Context,
@@ -56,6 +63,13 @@ func (s *ResourceGroupDeployment) SubscriptionId() string {
 // Gets the resource group name
 func (s *ResourceGroupDeployment) ResourceGroupName() string {
 	return s.resourceGroupName
+}
+
+func (s *ResourceGroupDeployment) Validate(
+	ctx context.Context, template azure.RawArmTemplate, parameters azure.ArmParameters, tags map[string]*string,
+) (*armresources.DeploymentValidateResult, error) {
+	return s.azCli.ValidateDeploymentForResourceGroup(
+		ctx, s.subscriptionId, s.resourceGroupName, s.name, template, parameters, tags)
 }
 
 func (s *ResourceGroupDeployment) Deploy(
@@ -146,6 +160,13 @@ func (s *SubscriptionDeployment) PortalUrl() string {
 // Gets the Azure location for the subscription deployment
 func (s *SubscriptionDeployment) Location() string {
 	return s.location
+}
+
+// Validate a given template with a set of parameters.
+func (s *SubscriptionDeployment) Validate(
+	ctx context.Context, template azure.RawArmTemplate, parameters azure.ArmParameters, tags map[string]*string,
+) (*armresources.DeploymentValidateResult, error) {
+	return s.azCli.ValidateDeploymentForSubscription(ctx, s.subscriptionId, s.location, s.name, template, parameters, tags)
 }
 
 // Deploy a given template with a set of parameters.
