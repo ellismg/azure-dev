@@ -68,7 +68,7 @@ type dockerProject struct {
 	docker          docker.Docker
 	framework       FrameworkService
 	containerHelper *ContainerHelper
-	bioc            input.Bioc
+	console         input.Console
 }
 
 // NewDockerProject creates a new instance of a Azd project that
@@ -77,13 +77,13 @@ func NewDockerProject(
 	env *environment.Environment,
 	docker docker.Docker,
 	containerHelper *ContainerHelper,
-	bioc input.Bioc,
+	console input.Console,
 ) CompositeFrameworkService {
 	return &dockerProject{
 		env:             env,
 		docker:          docker,
 		containerHelper: containerHelper,
-		bioc:            bioc,
+		console:         console,
 	}
 }
 
@@ -152,7 +152,7 @@ func (p *dockerProject) Build(
 	)
 
 	// Build the container
-	p.bioc.Progress(ctx, "Building Docker image")
+	p.console.Progress(ctx, "Building Docker image")
 	imageId, err := p.docker.Build(
 		ctx,
 		serviceConfig.Path(),
@@ -196,7 +196,7 @@ func (p *dockerProject) Package(
 
 	// Tag image.
 	log.Printf("tagging image %s as %s", imageId, localTag)
-	p.bioc.Progress(ctx, "Tagging Docker image")
+	p.console.Progress(ctx, "Tagging Docker image")
 	if err := p.docker.Tag(ctx, serviceConfig.Path(), imageId, localTag); err != nil {
 		return nil, fmt.Errorf("tagging image: %w", err)
 	}

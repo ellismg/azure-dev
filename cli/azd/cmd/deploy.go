@@ -107,7 +107,7 @@ type deployAction struct {
 	azCli                    azcli.AzCli
 	formatter                output.Formatter
 	writer                   io.Writer
-	console                  input.Bioc
+	console                  input.Console
 	commandRunner            exec.CommandRunner
 	middlewareRunner         middleware.MiddlewareContext
 	packageActionInitializer actions.ActionInitializer[*packageAction]
@@ -126,7 +126,7 @@ func newDeployAction(
 	accountManager account.Manager,
 	azCli azcli.AzCli,
 	commandRunner exec.CommandRunner,
-	console input.Bioc,
+	console input.Console,
 	formatter output.Formatter,
 	writer io.Writer,
 	middlewareRunner middleware.MiddlewareContext,

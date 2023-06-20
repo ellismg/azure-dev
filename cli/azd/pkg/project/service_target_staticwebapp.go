@@ -24,10 +24,10 @@ import (
 const DefaultStaticWebAppEnvironmentName = "default"
 
 type staticWebAppTarget struct {
-	env  *environment.Environment
-	cli  azcli.AzCli
-	swa  swa.SwaCli
-	bioc input.Bioc
+	env     *environment.Environment
+	cli     azcli.AzCli
+	swa     swa.SwaCli
+	console input.Console
 }
 
 // NewStaticWebAppTarget creates a new instance of the Static Web App target
@@ -35,13 +35,13 @@ func NewStaticWebAppTarget(
 	env *environment.Environment,
 	azCli azcli.AzCli,
 	swaCli swa.SwaCli,
-	bioc input.Bioc,
+	console input.Console,
 ) ServiceTarget {
 	return &staticWebAppTarget{
-		env:  env,
-		cli:  azCli,
-		swa:  swaCli,
-		bioc: bioc,
+		env:     env,
+		cli:     azCli,
+		swa:     swaCli,
+		console: console,
 	}
 }
 
@@ -87,7 +87,7 @@ func (at *staticWebAppTarget) Deploy(
 	}
 
 	// Get the static webapp deployment token
-	at.bioc.Progress(ctx, "Retrieving deployment token")
+	at.console.Progress(ctx, "Retrieving deployment token")
 	deploymentToken, err := at.cli.GetStaticWebAppApiKey(
 		ctx,
 		targetResource.SubscriptionId(),
@@ -99,7 +99,7 @@ func (at *staticWebAppTarget) Deploy(
 	}
 
 	// SWA performs a zip & deploy of the specified output folder and deploys it to the configured environment
-	at.bioc.Progress(ctx, "Uploading deployment artifacts")
+	at.console.Progress(ctx, "Uploading deployment artifacts")
 	res, err := at.swa.Deploy(ctx,
 		serviceConfig.Project.Path,
 		at.env.GetTenantId(),
@@ -117,12 +117,12 @@ func (at *staticWebAppTarget) Deploy(
 		return nil, fmt.Errorf("failed deploying static web app: %w", err)
 	}
 
-	at.bioc.Progress(ctx, "Verifying deployment")
+	at.console.Progress(ctx, "Verifying deployment")
 	if err := at.verifyDeployment(ctx, targetResource); err != nil {
 		return nil, err
 	}
 
-	at.bioc.Progress(ctx, "Fetching endpoints for static web app")
+	at.console.Progress(ctx, "Fetching endpoints for static web app")
 	endpoints, err := at.Endpoints(ctx, serviceConfig, targetResource)
 	if err != nil {
 		return nil, err

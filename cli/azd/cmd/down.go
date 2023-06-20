@@ -56,7 +56,7 @@ type downAction struct {
 	flags            *downFlags
 	provisionManager *provisioning.Manager
 	env              *environment.Environment
-	console          input.Bioc
+	console          input.Console
 	projectConfig    *project.ProjectConfig
 }
 
@@ -65,7 +65,7 @@ func newDownAction(
 	provisionManager *provisioning.Manager,
 	env *environment.Environment,
 	projectConfig *project.ProjectConfig,
-	console input.Bioc,
+	console input.Console,
 	alphaFeatureManager *alpha.FeatureManager,
 ) actions.Action {
 	return &downAction{

@@ -68,7 +68,7 @@ func newRestoreCmd() *cobra.Command {
 type restoreAction struct {
 	flags          *restoreFlags
 	args           []string
-	console        input.Bioc
+	console        input.Console
 	formatter      output.Formatter
 	writer         io.Writer
 	azdCtx         *azdcontext.AzdContext
@@ -82,7 +82,7 @@ type restoreAction struct {
 func newRestoreAction(
 	flags *restoreFlags,
 	args []string,
-	console input.Bioc,
+	console input.Console,
 	formatter output.Formatter,
 	writer io.Writer,
 	azdCtx *azdcontext.AzdContext,

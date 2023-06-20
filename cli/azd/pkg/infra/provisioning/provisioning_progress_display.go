@@ -29,13 +29,13 @@ type ProvisioningProgressDisplay struct {
 	// Keeps track of created resources
 	displayedResources map[string]bool
 	resourceManager    infra.ResourceManager
-	console            input.Bioc
+	console            input.Console
 	target             infra.Deployment
 }
 
 func NewProvisioningProgressDisplay(
 	rm infra.ResourceManager,
-	console input.Bioc,
+	console input.Console,
 	target infra.Deployment,
 ) ProvisioningProgressDisplay {
 	return ProvisioningProgressDisplay{

@@ -25,19 +25,19 @@ const (
 type dotnetProject struct {
 	env       *environment.Environment
 	dotnetCli dotnet.DotNetCli
-	bioc      input.Bioc
+	console   input.Console
 }
 
 // NewDotNetProject creates a new instance of a dotnet project
 func NewDotNetProject(
 	dotNetCli dotnet.DotNetCli,
 	env *environment.Environment,
-	bioc input.Bioc,
+	console input.Console,
 ) FrameworkService {
 	return &dotnetProject{
 		env:       env,
 		dotnetCli: dotNetCli,
-		bioc:      bioc,
+		console:   console,
 	}
 }
 
@@ -81,7 +81,7 @@ func (dp *dotnetProject) Restore(
 	serviceConfig *ServiceConfig,
 ) (*ServiceRestoreResult, error) {
 
-	dp.bioc.Progress(ctx, "Restoring .NET project dependencies")
+	dp.console.Progress(ctx, "Restoring .NET project dependencies")
 	projFile, err := findProjectFile(serviceConfig.Name, serviceConfig.Path())
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (dp *dotnetProject) Build(
 	restoreOutput *ServiceRestoreResult,
 ) (*ServiceBuildResult, error) {
 
-	dp.bioc.Progress(ctx, "Building .NET project")
+	dp.console.Progress(ctx, "Building .NET project")
 	projFile, err := findProjectFile(serviceConfig.Name, serviceConfig.Path())
 	if err != nil {
 		return nil, err
@@ -146,7 +146,7 @@ func (dp *dotnetProject) Package(
 		return nil, fmt.Errorf("creating package directory for %s: %w", serviceConfig.Name, err)
 	}
 
-	dp.bioc.Progress(ctx, "Publishing .NET project")
+	dp.console.Progress(ctx, "Publishing .NET project")
 	projFile, err := findProjectFile(serviceConfig.Name, serviceConfig.Path())
 	if err != nil {
 		return nil, err

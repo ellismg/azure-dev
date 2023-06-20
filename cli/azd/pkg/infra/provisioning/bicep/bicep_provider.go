@@ -59,7 +59,7 @@ type BicepProvider struct {
 	env                 *environment.Environment
 	projectPath         string
 	options             Options
-	console             input.Bioc
+	console             input.Console
 	bicepCli            bicep.BicepCli
 	azCli               azcli.AzCli
 	prompters           prompt.Prompter
@@ -1379,7 +1379,7 @@ func NewBicepProvider(
 	bicepCli bicep.BicepCli,
 	azCli azcli.AzCli,
 	env *environment.Environment,
-	console input.Bioc,
+	console input.Console,
 	prompters prompt.Prompter,
 	curPrincipal CurrentPrincipalIdProvider,
 	alphaFeatureManager *alpha.FeatureManager,

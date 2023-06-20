@@ -18,22 +18,22 @@ import (
 )
 
 type appServiceTarget struct {
-	env  *environment.Environment
-	cli  azcli.AzCli
-	bioc input.Bioc
+	env     *environment.Environment
+	cli     azcli.AzCli
+	console input.Console
 }
 
 // NewAppServiceTarget creates a new instance of the AppServiceTarget
 func NewAppServiceTarget(
 	env *environment.Environment,
 	azCli azcli.AzCli,
-	bioc input.Bioc,
+	console input.Console,
 ) ServiceTarget {
 
 	return &appServiceTarget{
-		env:  env,
-		cli:  azCli,
-		bioc: bioc,
+		env:     env,
+		cli:     azCli,
+		console: console,
 	}
 }
 
@@ -54,7 +54,7 @@ func (st *appServiceTarget) Package(
 	packageOutput *ServicePackageResult,
 ) (*ServicePackageResult, error) {
 
-	st.bioc.Progress(ctx, "Compressing deployment artifacts")
+	st.console.Progress(ctx, "Compressing deployment artifacts")
 	zipFilePath, err := createDeployableZip(serviceConfig.Name, packageOutput.PackagePath)
 	if err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func (st *appServiceTarget) Deploy(
 	defer os.Remove(packageOutput.PackagePath)
 	defer zipFile.Close()
 
-	st.bioc.Progress(ctx, "Uploading deployment package")
+	st.console.Progress(ctx, "Uploading deployment package")
 	res, err := st.cli.DeployAppServiceZip(
 		ctx,
 		targetResource.SubscriptionId(),
@@ -98,7 +98,7 @@ func (st *appServiceTarget) Deploy(
 		return nil, fmt.Errorf("deploying service %s: %w", serviceConfig.Name, err)
 	}
 
-	st.bioc.Progress(ctx, "Fetching endpoints for app service")
+	st.console.Progress(ctx, "Fetching endpoints for app service")
 	endpoints, err := st.Endpoints(ctx, serviceConfig, targetResource)
 	if err != nil {
 		return nil, err

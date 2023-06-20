@@ -34,7 +34,7 @@ func createProject(
 	connection *azuredevops.Connection,
 	name string,
 	description string,
-	console input.Bioc,
+	console input.Console,
 ) (*core.TeamProjectReference, error) {
 	coreClient, err := core.NewClient(ctx, connection)
 	if err != nil {
@@ -109,7 +109,7 @@ func GetProjectFromNew(
 	repoPath string,
 	connection *azuredevops.Connection,
 	env *environment.Environment,
-	console input.Bioc,
+	console input.Console,
 ) (string, string, error) {
 	var project *core.TeamProjectReference
 	currentFolderName := filepath.Base(repoPath)
@@ -181,7 +181,7 @@ func GetProjectByName(
 func GetProjectFromExisting(
 	ctx context.Context,
 	connection *azuredevops.Connection,
-	console input.Bioc,
+	console input.Console,
 ) (string, string, error) {
 	coreClient, err := core.NewClient(ctx, connection)
 	if err != nil {

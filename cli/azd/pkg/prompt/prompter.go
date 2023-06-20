@@ -28,7 +28,7 @@ type Prompter interface {
 }
 
 type DefaultPrompter struct {
-	console        input.Bioc
+	console        input.Console
 	env            *environment.Environment
 	accountManager account.Manager
 	azCli          azcli.AzCli
@@ -36,7 +36,7 @@ type DefaultPrompter struct {
 
 func NewDefaultPrompter(
 	env *environment.Environment,
-	console input.Bioc,
+	console input.Console,
 	accountManager account.Manager,
 	azCli azcli.AzCli,
 ) Prompter {

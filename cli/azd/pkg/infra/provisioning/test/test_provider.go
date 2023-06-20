@@ -21,7 +21,7 @@ type TestProvider struct {
 	env         *environment.Environment
 	projectPath string
 	options     Options
-	console     input.Bioc
+	console     input.Console
 	prompters   prompt.Prompter
 }
 
@@ -118,7 +118,7 @@ func (p *TestProvider) Destroy(ctx context.Context, options DestroyOptions) (*De
 
 func NewTestProvider(
 	env *environment.Environment,
-	console input.Bioc,
+	console input.Console,
 	prompters prompt.Prompter,
 ) Provider {
 	return &TestProvider{

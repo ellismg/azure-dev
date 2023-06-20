@@ -20,21 +20,21 @@ import (
 // functionAppTarget specifies an Azure Function to deploy to.
 // Implements `project.ServiceTarget`
 type functionAppTarget struct {
-	env  *environment.Environment
-	cli  azcli.AzCli
-	bioc input.Bioc
+	env     *environment.Environment
+	cli     azcli.AzCli
+	console input.Console
 }
 
 // NewFunctionAppTarget creates a new instance of the Function App target
 func NewFunctionAppTarget(
 	env *environment.Environment,
 	azCli azcli.AzCli,
-	console input.Bioc,
+	console input.Console,
 ) ServiceTarget {
 	return &functionAppTarget{
-		env:  env,
-		cli:  azCli,
-		bioc: console,
+		env:     env,
+		cli:     azCli,
+		console: console,
 	}
 }
 
@@ -55,7 +55,7 @@ func (f *functionAppTarget) Package(
 	packageOutput *ServicePackageResult,
 ) (*ServicePackageResult, error) {
 
-	f.bioc.Progress(ctx, "Compressing deployment artifacts")
+	f.console.Progress(ctx, "Compressing deployment artifacts")
 	zipFilePath, err := createDeployableZip(serviceConfig.Name, packageOutput.PackagePath)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (f *functionAppTarget) Deploy(
 	defer os.Remove(packageOutput.PackagePath)
 	defer zipFile.Close()
 
-	f.bioc.Progress(ctx, "Uploading deployment package")
+	f.console.Progress(ctx, "Uploading deployment package")
 	res, err := f.cli.DeployFunctionAppUsingZipFile(
 		ctx,
 		targetResource.SubscriptionId(),
@@ -99,7 +99,7 @@ func (f *functionAppTarget) Deploy(
 		return nil, err
 	}
 
-	f.bioc.Progress(ctx, "Fetching endpoints for function app")
+	f.console.Progress(ctx, "Fetching endpoints for function app")
 	endpoints, err := f.Endpoints(ctx, serviceConfig, targetResource)
 	if err != nil {
 		return nil, err

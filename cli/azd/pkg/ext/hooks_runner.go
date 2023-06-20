@@ -21,7 +21,7 @@ import (
 type HooksRunner struct {
 	hooksManager  *HooksManager
 	commandRunner exec.CommandRunner
-	console       input.Bioc
+	console       input.Console
 	cwd           string
 	hooks         map[string]*HookConfig
 	env           *environment.Environment
@@ -32,7 +32,7 @@ type HooksRunner struct {
 func NewHooksRunner(
 	hooksManager *HooksManager,
 	commandRunner exec.CommandRunner,
-	console input.Bioc,
+	console input.Console,
 	cwd string,
 	hooks map[string]*HookConfig,
 	env *environment.Environment,

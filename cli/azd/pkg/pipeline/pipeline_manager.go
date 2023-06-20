@@ -62,7 +62,7 @@ type PipelineManager struct {
 	env            *environment.Environment
 	azCli          azcli.AzCli
 	gitCli         git.GitCli
-	console        input.Bioc
+	console        input.Console
 	serviceLocator ioc.ServiceLocator
 }
 
@@ -72,7 +72,7 @@ func NewPipelineManager(
 	gitCli git.GitCli,
 	azdCtx *azdcontext.AzdContext,
 	env *environment.Environment,
-	console input.Bioc,
+	console input.Console,
 	args *PipelineManagerArgs,
 	serviceLocator ioc.ServiceLocator,
 ) (*PipelineManager, error) {

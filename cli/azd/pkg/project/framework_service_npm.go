@@ -16,17 +16,17 @@ import (
 )
 
 type npmProject struct {
-	env  *environment.Environment
-	cli  npm.NpmCli
-	bioc input.Bioc
+	env     *environment.Environment
+	cli     npm.NpmCli
+	console input.Console
 }
 
 // NewNpmProject creates a new instance of a NPM project
-func NewNpmProject(cli npm.NpmCli, env *environment.Environment, bioc input.Bioc) FrameworkService {
+func NewNpmProject(cli npm.NpmCli, env *environment.Environment, console input.Console) FrameworkService {
 	return &npmProject{
-		env:  env,
-		cli:  cli,
-		bioc: bioc,
+		env:     env,
+		cli:     cli,
+		console: console,
 	}
 }
 
@@ -56,7 +56,7 @@ func (np *npmProject) Restore(
 	serviceConfig *ServiceConfig,
 ) (*ServiceRestoreResult, error) {
 
-	np.bioc.Progress(ctx, "Installing NPM dependencies")
+	np.console.Progress(ctx, "Installing NPM dependencies")
 	if err := np.cli.Install(ctx, serviceConfig.Path()); err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (np *npmProject) Build(
 
 	// Exec custom `build` script if available
 	// If `build`` script is not defined in the package.json the NPM script will NOT fail
-	np.bioc.Progress(ctx, "Running NPM build script")
+	np.console.Progress(ctx, "Running NPM build script")
 	if err := np.cli.RunScript(ctx, serviceConfig.Path(), "build"); err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (np *npmProject) Package(
 		return nil, fmt.Errorf("creating package directory for %s: %w", serviceConfig.Name, err)
 	}
 
-	np.bioc.Progress(ctx, "Running NPM package script")
+	np.console.Progress(ctx, "Running NPM package script")
 
 	// Long term this script we call should better align with our inner-loop scenarios
 	// Keeping this defaulted to `build` will create confusion for users when we start to support
@@ -127,7 +127,7 @@ func (np *npmProject) Package(
 		)
 	}
 
-	np.bioc.Progress(ctx, "Copying deployment package")
+	np.console.Progress(ctx, "Copying deployment package")
 
 	if err := buildForZip(
 		packageSource,

@@ -18,17 +18,17 @@ import (
 )
 
 type pythonProject struct {
-	env  *environment.Environment
-	cli  *python.PythonCli
-	bioc input.Bioc
+	env     *environment.Environment
+	cli     *python.PythonCli
+	console input.Console
 }
 
 // NewPythonProject creates a new instance of the Python project
-func NewPythonProject(cli *python.PythonCli, env *environment.Environment, bioc input.Bioc) FrameworkService {
+func NewPythonProject(cli *python.PythonCli, env *environment.Environment, console input.Console) FrameworkService {
 	return &pythonProject{
-		env:  env,
-		cli:  cli,
-		bioc: bioc,
+		env:     env,
+		cli:     cli,
+		console: console,
 	}
 }
 
@@ -58,14 +58,14 @@ func (pp *pythonProject) Restore(
 	serviceConfig *ServiceConfig,
 ) (*ServiceRestoreResult, error) {
 
-	pp.bioc.Progress(ctx, "Checking for Python virtual environment")
+	pp.console.Progress(ctx, "Checking for Python virtual environment")
 	vEnvName := pp.getVenvName(serviceConfig)
 	vEnvPath := path.Join(serviceConfig.Path(), vEnvName)
 
 	_, err := os.Stat(vEnvPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			pp.bioc.Progress(ctx, "Creating Python virtual environment")
+			pp.console.Progress(ctx, "Creating Python virtual environment")
 			err = pp.cli.CreateVirtualEnv(ctx, serviceConfig.Path(), vEnvName)
 			if err != nil {
 				return nil, fmt.Errorf(
@@ -80,7 +80,7 @@ func (pp *pythonProject) Restore(
 		}
 	}
 
-	pp.bioc.Progress(ctx, "Installing Python PIP dependencies")
+	pp.console.Progress(ctx, "Installing Python PIP dependencies")
 	err = pp.cli.InstallRequirements(ctx, serviceConfig.Path(), vEnvName, "requirements.txt")
 	if err != nil {
 		return nil, fmt.Errorf("requirements for project '%s' could not be installed: %w", serviceConfig.Path(), err)
@@ -130,7 +130,7 @@ func (pp *pythonProject) Package(
 		return nil, fmt.Errorf("package source '%s' is empty or does not exist", packageSource)
 	}
 
-	pp.bioc.Progress(ctx, "Copying deployment package")
+	pp.console.Progress(ctx, "Copying deployment package")
 	if err := buildForZip(
 		packageSource,
 		packageDest,

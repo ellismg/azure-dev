@@ -36,14 +36,14 @@ type versionAction struct {
 	flags     *versionFlags
 	formatter output.Formatter
 	writer    io.Writer
-	console   input.Bioc
+	console   input.Console
 }
 
 func newVersionAction(
 	flags *versionFlags,
 	formatter output.Formatter,
 	writer io.Writer,
-	console input.Bioc,
+	console input.Console,
 ) actions.Action {
 	return &versionAction{
 		flags:     flags,

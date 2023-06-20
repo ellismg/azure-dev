@@ -73,7 +73,7 @@ func (i *initFlags) Bind(local *pflag.FlagSet, global *internal.GlobalCommandOpt
 }
 
 type initAction struct {
-	console         input.Bioc
+	console         input.Console
 	cmdRun          exec.CommandRunner
 	gitCli          git.GitCli
 	flags           *initFlags
@@ -82,7 +82,7 @@ type initAction struct {
 
 func newInitAction(
 	cmdRun exec.CommandRunner,
-	console input.Bioc,
+	console input.Console,
 	gitCli git.GitCli,
 	flags *initFlags,
 	repoInitializer *repository.Initializer) actions.Action {

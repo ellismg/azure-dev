@@ -86,14 +86,14 @@ type Manager struct {
 	ghClient            *github.FederatedTokenClient
 	httpClient          httputil.HttpClient
 	launchBrowserFn     func(url string) error
-	console             input.Bioc
+	console             input.Console
 }
 
 func NewManager(
 	configManager config.Manager,
 	userConfigManager config.UserConfigManager,
 	httpClient httputil.HttpClient,
-	console input.Bioc,
+	console input.Console,
 ) (*Manager, error) {
 	cfgRoot, err := config.GetUserConfigDir()
 	if err != nil {

@@ -32,13 +32,13 @@ func newInfraDeleteCmd() *cobra.Command {
 
 type infraDeleteAction struct {
 	down    *downAction
-	console input.Bioc
+	console input.Console
 }
 
 func newInfraDeleteAction(
 	deleteFlags *infraDeleteFlags,
 	down *downAction,
-	console input.Bioc,
+	console input.Console,
 ) actions.Action {
 	// Required to ensure the sub action flags are bound correctly to the actions
 	down.flags = &deleteFlags.downFlags

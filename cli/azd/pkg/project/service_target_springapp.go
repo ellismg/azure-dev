@@ -31,7 +31,7 @@ type SpringOptions struct {
 type springAppTarget struct {
 	env           *environment.Environment
 	springService azcli.SpringService
-	bioc          input.Bioc
+	console       input.Console
 }
 
 // NewSpringAppTarget creates the spring app service target.
@@ -41,12 +41,12 @@ type springAppTarget struct {
 func NewSpringAppTarget(
 	env *environment.Environment,
 	springService azcli.SpringService,
-	bioc input.Bioc,
+	console input.Console,
 ) ServiceTarget {
 	return &springAppTarget{
 		env:           env,
 		springService: springService,
-		bioc:          bioc,
+		console:       console,
 	}
 }
 
@@ -111,7 +111,7 @@ func (st *springAppTarget) Deploy(
 		return nil, fmt.Errorf("reading artifact file %s: %w", artifactPath, err)
 	}
 
-	st.bioc.Progress(ctx, "Uploading spring artifact")
+	st.console.Progress(ctx, "Uploading spring artifact")
 
 	relativePath, err := st.springService.UploadSpringArtifact(
 		ctx,
@@ -126,7 +126,7 @@ func (st *springAppTarget) Deploy(
 		return nil, fmt.Errorf("failed to upload spring artifact: %w", err)
 	}
 
-	st.bioc.Progress(ctx, "Deploying spring artifact")
+	st.console.Progress(ctx, "Deploying spring artifact")
 
 	res, err := st.springService.DeploySpringAppArtifact(
 		ctx,
@@ -148,7 +148,7 @@ func (st *springAppTarget) Deploy(
 		return nil, fmt.Errorf("failed updating environment with relative path, %w", err)
 	}
 
-	st.bioc.Progress(ctx, "Fetching endpoints for spring app service")
+	st.console.Progress(ctx, "Fetching endpoints for spring app service")
 	endpoints, err := st.Endpoints(ctx, serviceConfig, targetResource)
 	if err != nil {
 		return nil, err

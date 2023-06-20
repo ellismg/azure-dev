@@ -48,8 +48,8 @@ type ConsoleShim interface {
 
 type PromptValidator func(response string) error
 
-// Basic input and output contract (Bioc) sets the contract for sending events within azd.
-type Bioc interface {
+// Basic input and output contract (Console) sets the contract for sending events within azd.
+type Console interface {
 	// Prints out a message to the underlying console write
 	Message(ctx context.Context, message string)
 	// Prints out a message following a contract ux item
@@ -489,7 +489,7 @@ func getConsoleWidth() int {
 }
 
 // Creates a new console with the specified writer, handles and formatter.
-func NewConsole(noPrompt bool, isTerminal bool, w io.Writer, handles ConsoleHandles, formatter output.Formatter) Bioc {
+func NewConsole(noPrompt bool, isTerminal bool, w io.Writer, handles ConsoleHandles, formatter output.Formatter) Console {
 	asker := NewAsker(noPrompt, isTerminal, handles.Stdout, handles.Stdin)
 
 	return &AskerConsole{
@@ -551,10 +551,10 @@ type Messaging interface {
 
 // A messaging system that displays messages to console.
 type consoleMessaging struct {
-	console Bioc
+	console Console
 }
 
-func NewConsoleMessaging(console Bioc) Messaging {
+func NewConsoleMessaging(console Console) Messaging {
 	return &consoleMessaging{
 		console: console,
 	}

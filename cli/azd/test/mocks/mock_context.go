@@ -64,7 +64,7 @@ func registerCommonMocks(mockContext *MockContext) {
 	mockContext.Container.RegisterSingleton(func() exec.CommandRunner {
 		return mockContext.CommandRunner
 	})
-	mockContext.Container.RegisterSingleton(func() input.Bioc {
+	mockContext.Container.RegisterSingleton(func() input.Console {
 		return mockContext.Console
 	})
 	mockContext.Container.RegisterSingleton(func() config.Manager {

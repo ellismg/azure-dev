@@ -111,14 +111,14 @@ type pipelineConfigAction struct {
 	flags     *pipelineConfigFlags
 	manager   *pipeline.PipelineManager
 	env       *environment.Environment
-	console   input.Bioc
+	console   input.Console
 	prompters prompt.Prompter
 }
 
 func newPipelineConfigAction(
 	env *environment.Environment,
 	_ auth.LoggedInGuard,
-	console input.Bioc,
+	console input.Console,
 	flags *pipelineConfigFlags,
 	prompters prompt.Prompter,
 	manager *pipeline.PipelineManager,

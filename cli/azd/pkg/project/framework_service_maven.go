@@ -22,19 +22,19 @@ type mavenProject struct {
 	env      *environment.Environment
 	mavenCli maven.MavenCli
 	javacCli javac.JavacCli
-	bioc     input.Bioc
+	console  input.Console
 }
 
 // NewMavenProject creates a new instance of a maven project
 func NewMavenProject(env *environment.Environment,
 	mavenCli maven.MavenCli,
 	javaCli javac.JavacCli,
-	bioc input.Bioc) FrameworkService {
+	console input.Console) FrameworkService {
 	return &mavenProject{
 		env:      env,
 		mavenCli: mavenCli,
 		javacCli: javaCli,
-		bioc:     bioc,
+		console:  console,
 	}
 }
 
@@ -68,7 +68,7 @@ func (m *mavenProject) Restore(
 	serviceConfig *ServiceConfig,
 ) (*ServiceRestoreResult, error) {
 
-	m.bioc.Progress(ctx, "Resolving maven dependencies")
+	m.console.Progress(ctx, "Resolving maven dependencies")
 	if err := m.mavenCli.ResolveDependencies(ctx, serviceConfig.Path()); err != nil {
 		return nil, fmt.Errorf("resolving maven dependencies: %w", err)
 	}
@@ -83,7 +83,7 @@ func (m *mavenProject) Build(
 	serviceConfig *ServiceConfig,
 	restoreOutput *ServiceRestoreResult,
 ) (*ServiceBuildResult, error) {
-	m.bioc.Progress(ctx, "Compiling maven project")
+	m.console.Progress(ctx, "Compiling maven project")
 	if err := m.mavenCli.Compile(ctx, serviceConfig.Path()); err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (m *mavenProject) Package(
 		return nil, fmt.Errorf("creating staging directory: %w", err)
 	}
 
-	m.bioc.Progress(ctx, "Packaging maven project")
+	m.console.Progress(ctx, "Packaging maven project")
 	if err := m.mavenCli.Package(ctx, serviceConfig.Path()); err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func (m *mavenProject) Package(
 		}
 	}
 
-	m.bioc.Progress(ctx, "Copying deployment package")
+	m.console.Progress(ctx, "Copying deployment package")
 	ext := strings.ToLower(filepath.Ext(archive))
 	err = copy.Copy(archive, filepath.Join(packageDest, AppServiceJavaPackageName+ext))
 	if err != nil {

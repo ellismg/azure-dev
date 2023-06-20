@@ -63,7 +63,7 @@ type packageAction struct {
 	projectConfig  *project.ProjectConfig
 	projectManager project.ProjectManager
 	serviceManager project.ServiceManager
-	console        input.Bioc
+	console        input.Console
 	formatter      output.Formatter
 	writer         io.Writer
 }
@@ -74,7 +74,7 @@ func newPackageAction(
 	projectConfig *project.ProjectConfig,
 	projectManager project.ProjectManager,
 	serviceManager project.ServiceManager,
-	console input.Bioc,
+	console input.Console,
 	formatter output.Formatter,
 	writer io.Writer,
 ) actions.Action {

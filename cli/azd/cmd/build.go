@@ -63,7 +63,7 @@ type buildAction struct {
 	projectConfig            *project.ProjectConfig
 	projectManager           project.ProjectManager
 	serviceManager           project.ServiceManager
-	console                  input.Bioc
+	console                  input.Console
 	formatter                output.Formatter
 	writer                   io.Writer
 	middlewareRunner         middleware.MiddlewareContext
@@ -76,7 +76,7 @@ func newBuildAction(
 	projectConfig *project.ProjectConfig,
 	projectManager project.ProjectManager,
 	serviceManager project.ServiceManager,
-	console input.Bioc,
+	console input.Console,
 	formatter output.Formatter,
 	writer io.Writer,
 	middlewareRunner middleware.MiddlewareContext,

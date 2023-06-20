@@ -20,7 +20,7 @@ type ContainerHelper struct {
 	containerRegistryService azcli.ContainerRegistryService
 	docker                   docker.Docker
 	clock                    clock.Clock
-	bioc                     input.Bioc
+	console                  input.Console
 }
 
 func NewContainerHelper(
@@ -28,14 +28,14 @@ func NewContainerHelper(
 	clock clock.Clock,
 	containerRegistryService azcli.ContainerRegistryService,
 	docker docker.Docker,
-	bioc input.Bioc,
+	console input.Console,
 ) *ContainerHelper {
 	return &ContainerHelper{
 		env:                      env,
 		containerRegistryService: containerRegistryService,
 		docker:                   docker,
 		clock:                    clock,
-		bioc:                     bioc,
+		console:                  console,
 	}
 }
 
@@ -120,13 +120,13 @@ func (ch *ContainerHelper) Deploy(
 		return nil, fmt.Errorf("getting remote image tag: %w", err)
 	}
 
-	ch.bioc.Progress(ctx, "Tagging container image")
+	ch.console.Progress(ctx, "Tagging container image")
 	if err := ch.docker.Tag(ctx, serviceConfig.Path(), localImageTag, remoteTag); err != nil {
 		return nil, err
 	}
 
 	log.Printf("logging into container registry '%s'\n", loginServer)
-	ch.bioc.Progress(ctx, "Logging into container registry")
+	ch.console.Progress(ctx, "Logging into container registry")
 	err = ch.containerRegistryService.Login(ctx, targetResource.SubscriptionId(), loginServer)
 	if err != nil {
 		return nil, err
@@ -134,7 +134,7 @@ func (ch *ContainerHelper) Deploy(
 
 	// Push image.
 	log.Printf("pushing %s to registry", remoteTag)
-	ch.bioc.Progress(ctx, "Pushing container image")
+	ch.console.Progress(ctx, "Pushing container image")
 	if err := ch.docker.Push(ctx, serviceConfig.Path(), remoteTag); err != nil {
 		return nil, err
 	}

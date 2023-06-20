@@ -21,7 +21,7 @@ type containerAppTarget struct {
 	containerHelper     *ContainerHelper
 	containerAppService containerapps.ContainerAppService
 	resourceManager     ResourceManager
-	bioc                input.Bioc
+	console             input.Console
 }
 
 // NewContainerAppTarget creates the container app service target.
@@ -33,14 +33,14 @@ func NewContainerAppTarget(
 	containerHelper *ContainerHelper,
 	containerAppService containerapps.ContainerAppService,
 	resourceManager ResourceManager,
-	bioc input.Bioc,
+	console input.Console,
 ) ServiceTarget {
 	return &containerAppTarget{
 		env:                 env,
 		containerHelper:     containerHelper,
 		containerAppService: containerAppService,
 		resourceManager:     resourceManager,
-		bioc:                bioc,
+		console:             console,
 	}
 }
 
@@ -86,7 +86,7 @@ func (at *containerAppTarget) Deploy(
 	}
 
 	imageName := at.env.GetServiceProperty(serviceConfig.Name, "IMAGE_NAME")
-	at.bioc.Progress(ctx, "Updating container app revision")
+	at.console.Progress(ctx, "Updating container app revision")
 	err = at.containerAppService.AddRevision(
 		ctx,
 		targetResource.SubscriptionId(),
@@ -98,7 +98,7 @@ func (at *containerAppTarget) Deploy(
 		return nil, fmt.Errorf("updating container app service: %w", err)
 	}
 
-	at.bioc.Progress(ctx, "Fetching endpoints for container app service")
+	at.console.Progress(ctx, "Fetching endpoints for container app service")
 	endpoints, err := at.Endpoints(ctx, serviceConfig, targetResource)
 	if err != nil {
 		return nil, err
