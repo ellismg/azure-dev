@@ -80,7 +80,7 @@ func (t *TerraformProvider) Initialize(ctx context.Context, projectPath string, 
 		return err
 	}
 
-	if err := t.prompters.EnsureEnv(ctx); err != nil {
+	if err := t.prompters.EnsureEnv(ctx, true); err != nil {
 		return err
 	}
 

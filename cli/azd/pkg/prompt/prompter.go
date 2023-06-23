@@ -21,7 +21,7 @@ import (
 type LocationFilterPredicate func(loc account.Location) bool
 
 type Prompter interface {
-	EnsureEnv(ctx context.Context) error
+	EnsureEnv(ctx context.Context, ensureLocation bool) error
 	PromptSubscription(ctx context.Context, msg string) (subscriptionId string, err error)
 	PromptLocation(ctx context.Context, subId string, msg string, filter LocationFilterPredicate) (string, error)
 	PromptResourceGroup(ctx context.Context) (string, error)
@@ -52,7 +52,13 @@ func NewDefaultPrompter(
 // values are unset.
 //
 // This currently means that subscription (AZURE_SUBSCRIPTION_ID) and location (AZURE_LOCATION) variables are set.
-func (p *DefaultPrompter) EnsureEnv(ctx context.Context) error {
+//
+// The location check my be skipped by setting [ensureLocation] to false.
+//
+// TODO(ellismg): The ensureLocation parameter is a hack here. There are callers like in `pipeline config` and `up` where
+// it is not obvious what the correct value to pass in here is (we really should be asking the provisioning manager this
+// question, and it can delegate to each provisioning provider which understands what values are needed in the environment)
+func (p *DefaultPrompter) EnsureEnv(ctx context.Context, ensureLocation bool) error {
 	if p.env.GetSubscriptionId() == "" {
 		subscriptionId, err := p.PromptSubscription(ctx, "Select an Azure Subscription to use:")
 		if err != nil {
@@ -66,7 +72,7 @@ func (p *DefaultPrompter) EnsureEnv(ctx context.Context) error {
 		}
 	}
 
-	if p.env.GetLocation() == "" {
+	if p.env.GetLocation() == "" && ensureLocation {
 		location, err := p.PromptLocation(
 			ctx,
 			p.env.GetSubscriptionId(),

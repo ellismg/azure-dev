@@ -38,7 +38,7 @@ func (p *TestProvider) Initialize(ctx context.Context, projectPath string, optio
 	p.projectPath = projectPath
 	p.options = options
 
-	return p.prompters.EnsureEnv(ctx)
+	return p.prompters.EnsureEnv(ctx, true)
 }
 
 func (p *TestProvider) Plan(ctx context.Context) (*DeploymentPlan, error) {

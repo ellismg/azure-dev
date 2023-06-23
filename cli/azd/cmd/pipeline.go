@@ -136,7 +136,7 @@ func newPipelineConfigAction(
 
 // Run implements action interface
 func (p *pipelineConfigAction) Run(ctx context.Context) (*actions.ActionResult, error) {
-	err := p.prompters.EnsureEnv(ctx)
+	err := p.prompters.EnsureEnv(ctx, true)
 	if err != nil {
 		return nil, err
 	}

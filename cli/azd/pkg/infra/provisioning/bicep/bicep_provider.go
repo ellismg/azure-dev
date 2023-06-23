@@ -21,6 +21,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/cognitiveservices/armcognitiveservices"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/azure/azure-dev/cli/azd/pkg/account"
 	"github.com/azure/azure-dev/cli/azd/pkg/alpha"
 	"github.com/azure/azure-dev/cli/azd/pkg/azure"
 	"github.com/azure/azure-dev/cli/azd/pkg/cmdsubst"
@@ -95,7 +96,7 @@ func (p *BicepProvider) Initialize(ctx context.Context, projectPath string, opti
 		return err
 	}
 
-	return p.prompters.EnsureEnv(ctx)
+	return p.prompters.EnsureEnv(ctx, false)
 }
 
 func (p *BicepProvider) State(ctx context.Context) (*StateResult, error) {
@@ -158,18 +159,88 @@ var ResourceGroupDeploymentFeature = alpha.MustFeatureKey("resourceGroupDeployme
 // Plans the infrastructure provisioning
 func (p *BicepProvider) Plan(ctx context.Context) (*DeploymentPlan, error) {
 	p.console.ShowSpinner(ctx, "Creating a deployment plan", input.Step)
-	// TODO: Report progress, "Generating Bicep parameters file"
-
-	parameters, err := p.loadParameters(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("creating parameters file: %w", err)
-	}
 
 	modulePath := p.modulePath()
 	// TODO: Report progress, "Compiling Bicep template"
 	rawTemplate, template, err := p.compileBicep(ctx, modulePath)
 	if err != nil {
 		return nil, fmt.Errorf("creating template: %w", err)
+	}
+
+	// Previously, we would prompt for a location and store the response AZURE_LOCATION, as part of initialization
+	// of the provider. We would do this, even if the user didn't use AZURE_LOCATION in their template, which was
+	// confusing. Instead, let's only add AZURE_LOCATION to the environment if the template parameters actually
+	// reference it.
+	//
+	// In addition, take allowed values into account when prompting for a location, if the template specifies them. This
+	// allows template authors to restrict the locations that can be used, which is useful if a certain resource type
+	// is only present in certain locations.
+	if p.env.GetLocation() == "" {
+		parametersBytes, err := os.ReadFile(p.parametersTemplateFilePath())
+		if err != nil {
+			return nil, fmt.Errorf("reading parameter file template: %w", err)
+		}
+
+		var rawArmParametersFile azure.ArmParameterFile
+		if err := json.Unmarshal([]byte(parametersBytes), &rawArmParametersFile); err != nil {
+			return nil, fmt.Errorf("error unmarshalling Bicep template parameters: %w", err)
+		}
+
+		// Walk all the parameters in the parameter file.
+		for name, value := range rawArmParametersFile.Parameters {
+			if s, ok := value.Value.(string); ok {
+				referencesLocation := false
+
+				// See if the value references `AZURE_LOCATION`.
+				_, err = envsubst.Eval(s, func(key string) string {
+					if key == environment.LocationEnvVarName {
+						referencesLocation = true
+					}
+
+					return ""
+				})
+				if err != nil {
+					return nil, fmt.Errorf("error evaluating Bicep template parameters: %w", err)
+				}
+
+				// If it does, prompt, taking the allowed values into account, and save the location in the environment.
+				if referencesLocation {
+					location, err := p.prompters.PromptLocation(
+						ctx,
+						p.env.GetSubscriptionId(),
+						"Select an Azure location to use:",
+						func(loc account.Location) bool {
+							if template.Parameters[name].AllowedValues == nil {
+								return true
+							}
+
+							return slices.IndexFunc(*template.Parameters[name].AllowedValues, func(v any) bool {
+								s, ok := v.(string)
+								return ok && loc.Name == s
+							}) != -1
+						},
+					)
+					if err != nil {
+						return nil, fmt.Errorf("prompting for location: %w", err)
+					}
+
+					p.env.SetLocation(location)
+
+					if err := p.env.Save(); err != nil {
+						return nil, fmt.Errorf("saving location: %w", err)
+					}
+
+					// We've now set AZURE_LOCATION, so we can break out of the loop without considering other parameters.
+					break
+				}
+			}
+		}
+	}
+
+	// TODO: Report progress, "Generating Bicep parameters file"
+	parameters, err := p.loadParameters(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("creating parameters file: %w", err)
 	}
 
 	configuredParameters, err := p.ensureParameters(ctx, template, parameters)
@@ -190,9 +261,35 @@ func (p *BicepProvider) Plan(ctx context.Context) (*DeploymentPlan, error) {
 	var target infra.Deployment
 
 	if deploymentScope == azure.DeploymentScopeSubscription {
+		// Subscription level deployments need to have their metadata stored somewhere (resource group scoped deployments
+		// don't require this because they are stored in the location of the resource group). We choose to store this
+		// data in whatever location the user had picked for other resources.  We do this by first using the AZURE_LOCATION
+		// environment variable if it set. If unset, we'll use the the value of the `location` parameter on the deployment,
+		// itself, and if no such parameter exists, we'll fall back to prompting the user.
+		deploymentLocation := p.env.GetLocation()
+
+		if deploymentLocation == "" {
+			if v, has := configuredParameters["location"]; has {
+				if s, ok := v.Value.(string); ok {
+					deploymentLocation = s
+				}
+			}
+		}
+
+		if deploymentLocation == "" {
+			loc, err := p.prompters.PromptLocation(
+				ctx, p.env.GetSubscriptionId(), "Select an Azure location to store provisioning metadata:", nil)
+
+			if err != nil {
+				return nil, fmt.Errorf("prompting for location for deployment metadata: %w", err)
+			}
+
+			deploymentLocation = loc
+		}
+
 		target = infra.NewSubscriptionDeployment(
 			p.azCli,
-			p.env.GetLocation(),
+			deploymentLocation,
 			p.env.GetSubscriptionId(),
 			deploymentNameForEnv(p.env.GetEnvName(), p.clock),
 		)
@@ -1116,6 +1213,26 @@ func (p *BicepProvider) createOutputParameters(
 	}
 
 	return outputParams
+}
+
+func (p *BicepProvider) parametersReferencesAzureLocation(ctx context.Context) (bool, error) {
+	sawAzureLocation := false
+
+	parametersBytes, err := os.ReadFile(p.parametersTemplateFilePath())
+	if err != nil {
+		return false, fmt.Errorf("reading parameter file template: %w", err)
+	}
+
+	// Do an eval to see if there are any references to AZURE_LOCATION
+	_, err = envsubst.Eval(string(parametersBytes), func(name string) string {
+		if name == environment.LocationEnvVarName {
+			sawAzureLocation = true
+		}
+
+		return ""
+	})
+
+	return sawAzureLocation, err
 }
 
 // loadParameters reads the parameters file template for environment/module specified by Options,

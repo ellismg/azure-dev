@@ -107,7 +107,7 @@ func (u *upAction) Run(ctx context.Context) (*actions.ActionResult, error) {
 			output.WithWarningFormat("WARNING: The '--service' flag is deprecated and will be removed in a future release."))
 	}
 
-	err := u.prompters.EnsureEnv(ctx)
+	err := u.prompters.EnsureEnv(ctx, true)
 	if err != nil {
 		return nil, err
 	}
