@@ -309,7 +309,7 @@ func (fns *containerAppTemplateManifestFuncs) ConnectionString(name string) (str
 
 		return "", fmt.Errorf("could not determine redis password: no requirepass line found in redis-config")
 
-	case "postgres.database.v0":
+	case "postgres.database.v0", "postgres.server.v0":
 		targetContainerName := scaffold.ContainerAppName(name)
 
 		password, err := fns.secretValue(targetContainerName, "pg-password")
@@ -317,7 +317,18 @@ func (fns *containerAppTemplateManifestFuncs) ConnectionString(name string) (str
 			return "", fmt.Errorf("could not determine postgres password: %w", err)
 		}
 
-		return fmt.Sprintf("Host=%s;Database=postgres;Username=postgres;Password=%s", targetContainerName, password), nil
+		parts := []string{
+			fmt.Sprintf("Host=%s", targetContainerName),
+			"Username=postgres",
+			fmt.Sprintf("Password=%s", password),
+		}
+
+		// The database created by the ACA Dev Service is always named "postgres"
+		if resource.Type == "postgres.database.v0" {
+			parts = append(parts, "Database=postgres")
+		}
+
+		return strings.Join(parts, ";"), nil
 	default:
 		return "", fmt.Errorf("connectionString: unsupported resource type '%s'", resource.Type)
 	}

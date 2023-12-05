@@ -243,6 +243,18 @@ func (b *infraGenerator) LoadManifest(m *Manifest) error {
 			//
 			// We have the case statement here to ensure we don't error out on the resource type by treating it as an unknown
 			// resource type.
+			//
+			// TODO(ellismg): We want to support the case where you have a server, but no database.  In Aspire terms, it
+			// would mean something in your app host that looks like this:
+			//
+			// builder.AddPostgresContainer("pgcont");
+			//
+			// Without calling `.AddDatabase()` on the returned object.
+			//
+			// In that case, we will see a postgres.server.v0 resource, but no postgres.database.v0 resource.
+			//
+			// We need to provision something in this case.  I suspect when we see a database resource with a server parent,
+			// we don't want to provision anything extra.
 		case "postgres.database.v0":
 			b.addContainerAppService(name, "postgres")
 		case "postgres.connection.v0":
@@ -529,7 +541,7 @@ func (b *infraGenerator) Compile() error {
 					projectTemplateCtx.Env[k] = fmt.Sprintf(
 						"%s://%s.internal.{{ .Env.AZURE_CONTAINER_APPS_ENVIRONMENT_DEFAULT_DOMAIN }}", binding.Scheme, resource)
 				}
-			case targetType == "postgres.database.v0" || targetType == "redis.v0":
+			case targetType == "postgres.server.v0" || targetType == "postgres.database.v0" || targetType == "redis.v0":
 				switch prop {
 				case "connectionString":
 					projectTemplateCtx.Env[k] = fmt.Sprintf(`{{ connectionString "%s" }}`, resource)
