@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
-	"github.com/azure/azure-dev/cli/azd/pkg/azsdk"
 )
 
 type PermissionListRequestBuilder struct {
@@ -33,16 +33,14 @@ func (c *PermissionListRequestBuilder) Get(ctx context.Context) ([]*armauthoriza
 		return nil, err
 	}
 
-	options := azsdk.NewClientOptionsBuilderFactory(c.client.options.Transport, "azd", c.client.cloud).
-		NewClientOptionsBuilder().
-		WithPerCallPolicy(azsdk.NewMsCorrelationPolicy()).
-		BuildArmClientOptions()
-	permissionsClient, err := armauthorization.NewPermissionsClient(project.SubscriptionId, c.client.credential, options)
+	client, err := armauthorization.NewPermissionsClient(project.SubscriptionId, c.client.credential, &arm.ClientOptions{
+		ClientOptions: *c.client.options,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	pager := permissionsClient.NewListForResourcePager(
+	pager := client.NewListForResourcePager(
 		project.ResourceGroup,
 		"Microsoft.DevCenter",
 		"projects",

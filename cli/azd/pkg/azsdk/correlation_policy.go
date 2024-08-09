@@ -7,8 +7,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// MsCorrelationIdHeader is the header name for Microsoft correlation ID.
 // See https://github.com/Azure/azure-resource-manager-rpc/blob/master/v1.0/common-api-details.md#client-request-headers
-const cMsCorrelationIdHeader = "x-ms-correlation-request-id"
+const MsCorrelationIdHeader = "x-ms-correlation-request-id"
 
 // See https://learn.microsoft.com/en-us/graph/best-practices-concept#reliability-and-support
 const cMsGraphCorrelationIdHeader = "client-request-id"
@@ -33,7 +34,7 @@ func (p *simpleCorrelationPolicy) Do(req *policy.Request) (*http.Response, error
 // This works for Azure REST API, and could also work for other Microsoft-hosted services that do not yet honor distributed
 // tracing.
 func NewMsCorrelationPolicy() policy.Policy {
-	return &simpleCorrelationPolicy{headerName: cMsCorrelationIdHeader}
+	return &simpleCorrelationPolicy{headerName: MsCorrelationIdHeader}
 }
 
 // NewMsGraphCorrelationPolicy creates a policy that sets Microsoft Graph correlation ID headers on HTTP requests.

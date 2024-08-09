@@ -8,6 +8,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/azure/azure-dev/cli/azd/pkg/auth"
 	"github.com/azure/azure-dev/cli/azd/pkg/azsdk"
 	"github.com/azure/azure-dev/cli/azd/pkg/azsdk/storage"
@@ -70,9 +72,10 @@ func createBlobClient(
 	storageConfig *storage.AccountConfig,
 	httpClient auth.HttpClient,
 ) storage.BlobClient {
-	coreClientOptions := azsdk.NewClientOptionsBuilderFactory(httpClient, "azd", cloud.AzurePublic()).
-		NewClientOptionsBuilder().
-		BuildCoreClientOptions()
+	coreClientOptions := &azcore.ClientOptions{
+		Transport:       httpClient,
+		PerCallPolicies: []policy.Policy{azsdk.NewMsCorrelationPolicy(), azsdk.NewUserAgentPolicy("azd")},
+	}
 
 	fileConfigManager := config.NewFileConfigManager(config.NewManager())
 

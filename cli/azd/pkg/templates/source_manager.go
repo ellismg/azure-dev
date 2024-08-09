@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/azure/azure-dev/cli/azd/pkg/config"
-	"github.com/azure/azure-dev/cli/azd/pkg/httputil"
 	"github.com/azure/azure-dev/cli/azd/pkg/ioc"
 	"github.com/azure/azure-dev/cli/azd/resources"
 )
@@ -73,7 +73,7 @@ type sourceManager struct {
 	options        *SourceOptions
 	serviceLocator ioc.ServiceLocator
 	configManager  config.UserConfigManager
-	httpClient     httputil.HttpClient
+	clientOptions  *azcore.ClientOptions
 }
 
 // NewSourceManager creates a new SourceManager.
@@ -81,7 +81,7 @@ func NewSourceManager(
 	options *SourceOptions,
 	serviceLocator ioc.ServiceLocator,
 	configManager config.UserConfigManager,
-	httpClient httputil.HttpClient,
+	clientOptions *azcore.ClientOptions,
 ) SourceManager {
 	if options == nil {
 		options = NewSourceOptions()
@@ -91,7 +91,7 @@ func NewSourceManager(
 		options:        options,
 		serviceLocator: serviceLocator,
 		configManager:  configManager,
-		httpClient:     httpClient,
+		clientOptions:  clientOptions,
 	}
 }
 
@@ -223,9 +223,9 @@ func (sm *sourceManager) CreateSource(ctx context.Context, config *SourceConfig)
 	case SourceKindFile:
 		source, err = NewFileTemplateSource(config.Name, config.Location)
 	case SourceKindUrl:
-		source, err = NewUrlTemplateSource(ctx, config.Name, config.Location, sm.httpClient)
+		source, err = NewUrlTemplateSource(ctx, config.Name, config.Location, sm.clientOptions)
 	case SourceKindAwesomeAzd:
-		source, err = NewAwesomeAzdTemplateSource(ctx, SourceAwesomeAzd.Name, SourceAwesomeAzd.Location, sm.httpClient)
+		source, err = NewAwesomeAzdTemplateSource(ctx, SourceAwesomeAzd.Name, SourceAwesomeAzd.Location, sm.clientOptions)
 	case SourceKindResource:
 		source, err = NewJsonTemplateSource(SourceDefault.Name, string(resources.TemplatesJson))
 	default:

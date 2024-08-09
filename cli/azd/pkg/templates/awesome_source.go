@@ -8,10 +8,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/azure/azure-dev/cli/azd/pkg/github"
-	"github.com/azure/azure-dev/cli/azd/pkg/httputil"
 )
 
 type awesomeAzdTemplate struct {
@@ -26,11 +25,9 @@ func NewAwesomeAzdTemplateSource(
 	ctx context.Context,
 	name string,
 	url string,
-	httpClient httputil.HttpClient,
+	options *azcore.ClientOptions,
 ) (Source, error) {
-	pipeline := runtime.NewPipeline("azd-templates", "1.0.0", runtime.PipelineOptions{}, &policy.ClientOptions{
-		Transport: httpClient,
-	})
+	pipeline := runtime.NewPipeline("azd-templates", "1.0.0", runtime.PipelineOptions{}, options)
 
 	req, err := runtime.NewRequest(ctx, http.MethodGet, url)
 	if err != nil {

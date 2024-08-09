@@ -31,7 +31,6 @@ import (
 	"github.com/azure/azure-dev/cli/azd/internal/telemetry"
 	"github.com/azure/azure-dev/cli/azd/internal/tracing"
 	"github.com/azure/azure-dev/cli/azd/pkg/azapi"
-	"github.com/azure/azure-dev/cli/azd/pkg/cloud"
 	"github.com/azure/azure-dev/cli/azd/pkg/config"
 	"github.com/azure/azure-dev/cli/azd/pkg/devcenter"
 	"github.com/azure/azure-dev/cli/azd/pkg/environment"
@@ -256,7 +255,6 @@ func Test_CLI_InfraCreateAndDelete(t *testing.T) {
 	armClientOptions := &arm.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
 			Transport: client,
-			Cloud:     cloud.AzurePublic().Configuration,
 		},
 	}
 	azCli := azcli.NewAzCli(mockaccount.SubscriptionCredentialProviderFunc(
@@ -472,7 +470,6 @@ func Test_CLI_InfraCreateAndDeleteUpperCase(t *testing.T) {
 	armClientOptions := &arm.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
 			Transport: client,
-			Cloud:     cloud.AzurePublic().Configuration,
 		},
 	}
 

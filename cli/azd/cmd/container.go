@@ -12,6 +12,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/azure/azure-dev/cli/azd/cmd/actions"
 	"github.com/azure/azure-dev/cli/azd/cmd/middleware"
@@ -144,9 +145,6 @@ func registerCommonDependencies(container *ioc.NestedContainer) {
 	client := createHttpClient()
 	ioc.RegisterInstance[httputil.HttpClient](container, client)
 	ioc.RegisterInstance[auth.HttpClient](container, client)
-	container.MustRegisterSingleton(func() httputil.UserAgent {
-		return httputil.UserAgent(internal.UserAgent())
-	})
 
 	// Auth
 	container.MustRegisterSingleton(auth.NewLoggedInGuard)
@@ -473,26 +471,25 @@ func registerCommonDependencies(container *ioc.NestedContainer) {
 
 	container.MustRegisterSingleton(func(
 		httpClient httputil.HttpClient,
-		userAgent httputil.UserAgent,
 		cloud *cloud.Cloud,
-	) *azsdk.ClientOptionsBuilderFactory {
-		return azsdk.NewClientOptionsBuilderFactory(httpClient, string(userAgent), cloud)
-	})
-
-	container.MustRegisterSingleton(func(
-		clientOptionsBuilderFactory *azsdk.ClientOptionsBuilderFactory,
 	) *azcore.ClientOptions {
-		return clientOptionsBuilderFactory.NewClientOptionsBuilder().
-			WithPerCallPolicy(azsdk.NewMsCorrelationPolicy()).
-			BuildCoreClientOptions()
+		return &azcore.ClientOptions{
+			Transport: httpClient,
+			PerCallPolicies: []policy.Policy{
+				azsdk.NewMsCorrelationPolicy(),
+				azsdk.NewUserAgentPolicy(internal.UserAgent()),
+			},
+			Logging: policy.LogOptions{
+				AllowedHeaders: []string{azsdk.MsCorrelationIdHeader},
+			},
+			Cloud: cloud.Configuration,
+		}
 	})
 
-	container.MustRegisterSingleton(func(
-		clientOptionsBuilderFactory *azsdk.ClientOptionsBuilderFactory,
-	) *arm.ClientOptions {
-		return clientOptionsBuilderFactory.NewClientOptionsBuilder().
-			WithPerCallPolicy(azsdk.NewMsCorrelationPolicy()).
-			BuildArmClientOptions()
+	container.MustRegisterSingleton(func(clientOptions *azcore.ClientOptions) *arm.ClientOptions {
+		return &arm.ClientOptions{
+			ClientOptions: *clientOptions,
+		}
 	})
 
 	container.MustRegisterSingleton(templates.NewTemplateManager)
@@ -785,10 +782,3 @@ func (w *workflowCmdAdapter) ExecuteContext(ctx context.Context) error {
 	childCtx := middleware.WithChildAction(ctx)
 	return w.cmd.ExecuteContext(childCtx)
 }
-
-// ArmClientInitializer is a function definition for all Azure SDK ARM Client
-type ArmClientInitializer[T comparable] func(
-	subscriptionId string,
-	credentials azcore.TokenCredential,
-	armClientOptions *arm.ClientOptions,
-) (T, error)

@@ -44,8 +44,13 @@ func NewDevCenterClient(
 	resourceGraphClient *armresourcegraph.Client,
 	cloud *cloud.Cloud,
 ) (DevCenterClient, error) {
-	options.PerCallPolicies = append(options.PerCallPolicies, NewApiVersionPolicy(nil))
-	pipeline := NewPipeline(credential, ServiceConfig, options)
+	if options == nil {
+		options = &azcore.ClientOptions{}
+	}
+
+	clonedOptions := *options
+	clonedOptions.PerCallPolicies = append(options.PerCallPolicies, NewApiVersionPolicy(nil))
+	pipeline := NewPipeline(credential, ServiceConfig, &clonedOptions)
 
 	return &devCenterClient{
 		pipeline:            pipeline,

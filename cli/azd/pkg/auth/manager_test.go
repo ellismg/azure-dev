@@ -144,7 +144,6 @@ func TestServicePrincipalLoginFederatedTokenProvider(t *testing.T) {
 		credentialCache:   credentialCache,
 		ghClient: github.NewFederatedTokenClient(&policy.ClientOptions{
 			Transport: mockContext.HttpClient,
-			Cloud:     cloud.AzurePublic().Configuration,
 		}),
 		cloud: cloud.AzurePublic(),
 	}
