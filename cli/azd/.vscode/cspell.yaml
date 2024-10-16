@@ -26,9 +26,6 @@ dictionaryDefinitions:
 dictionaries:
   - azdProjectDictionary
 overrides:
-  - filename: cmd/auth_login.go
-    words:
-      - ACCESSTOKEN
   - filename: internal/tracing/fields/domains.go
     words:
       - azmk

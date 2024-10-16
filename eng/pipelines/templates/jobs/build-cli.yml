@@ -115,20 +115,16 @@ jobs:
         env:
           # AZD live test setup variables
           CI: true
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
           AZD_TEST_CLI_VERSION: $(CLI_VERSION)
           AZD_TEST_CLIENT_ID: $(arm-client-id)
           AZD_TEST_TENANT_ID: $(arm-tenant-id)
           AZD_TEST_AZURE_SUBSCRIPTION_ID: $(SubscriptionId)
           AZD_TEST_AZURE_LOCATION: eastus2
           AZURE_RECORD_MODE: $(AZURE_RECORD_MODE)
-          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-          # AZD Live Test: Terraform authentication via OIDC.
-          ARM_CLIENT_ID: $(arm-client-id)
-          ARM_SUBSCRIPTION_ID: $(SubscriptionId)
+          # AZD Live Test: Terraform authentication via `az`
+          ARM_USE_CLI: true
           ARM_TENANT_ID: $(arm-tenant-id)
-          ARM_USE_OIDC: true
-          ARM_OIDC_REQUEST_URL: $(arm-oidc-request-url)
-          ARM_OIDC_REQUEST_TOKEN: $(System.AccessToken)
           # Code Coverage: Generate junit report to publish results
           GOTESTSUM_JUNITFILE: junitTestReport.xml
 

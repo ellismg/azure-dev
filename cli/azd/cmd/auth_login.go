@@ -46,20 +46,18 @@ func newAuthLoginFlags(cmd *cobra.Command, global *internal.GlobalCommandOptions
 }
 
 type loginFlags struct {
-	onlyCheckStatus         bool
-	browser                 bool
-	managedIdentity         bool
-	useDeviceCode           boolPtr
-	tenantID                string
-	clientID                string
-	clientSecret            stringPtr
-	clientCertificate       string
-	serviceConnectionID     string
-	systemAccessTokenEnvVar string
-	federatedTokenProvider  string
-	scopes                  []string
-	redirectPort            int
-	global                  *internal.GlobalCommandOptions
+	onlyCheckStatus        bool
+	browser                bool
+	managedIdentity        bool
+	useDeviceCode          boolPtr
+	tenantID               string
+	clientID               string
+	clientSecret           stringPtr
+	clientCertificate      string
+	federatedTokenProvider string
+	scopes                 []string
+	redirectPort           int
+	global                 *internal.GlobalCommandOptions
 }
 
 // stringPtr implements a pflag.Value and allows us to distinguish between a flag value being explicitly set to the empty
@@ -141,16 +139,6 @@ func (lf *loginFlags) Bind(local *pflag.FlagSet, global *internal.GlobalCommandO
 		cClientCertificateFlagName,
 		"",
 		"The path to the client certificate for the service principal to authenticate with.")
-	local.StringVar(
-		&lf.serviceConnectionID,
-		"service-connection-id",
-		"",
-		"The service connection id to authenticate with.")
-	local.StringVar(
-		&lf.systemAccessTokenEnvVar,
-		"system-access-token-environment-variable-name",
-		"SYSTEM_ACCESSTOKEN",
-		"The name of the environment variable that contains the system access token to authenticate with.")
 	local.StringVar(
 		&lf.federatedTokenProvider,
 		cFederatedCredentialProviderFlagName,
@@ -401,6 +389,16 @@ func runningOnCodespacesBrowser(ctx context.Context, commandRunner exec.CommandR
 }
 
 func (la *loginAction) login(ctx context.Context) error {
+	if la.flags.federatedTokenProvider == string(auth.AzurePipelinesFederatedTokenProvider) {
+		if la.flags.clientID == "" {
+			la.flags.clientID = os.Getenv(auth.AzurePipelinesClientIDEnvVarName)
+		}
+
+		if la.flags.tenantID == "" {
+			la.flags.clientID = os.Getenv(auth.AzurePipelinesTenantIDEnvVarName)
+		}
+	}
+
 	if la.flags.managedIdentity {
 		if _, err := la.authManager.LoginWithManagedIdentity(
 			ctx, la.flags.clientID,
@@ -419,7 +417,6 @@ func (la *loginAction) login(ctx context.Context) error {
 		if countTrue(
 			la.flags.clientSecret.ptr != nil,
 			la.flags.clientCertificate != "",
-			la.flags.serviceConnectionID != "",
 			la.flags.federatedTokenProvider != "",
 		) != 1 {
 			return fmt.Errorf(
@@ -464,15 +461,22 @@ func (la *loginAction) login(ctx context.Context) error {
 			); err != nil {
 				return fmt.Errorf("logging in: %w", err)
 			}
-		case la.flags.federatedTokenProvider != "":
-			if _, err := la.authManager.LoginWithServicePrincipalFederatedTokenProvider(
-				ctx, la.flags.tenantID, la.flags.clientID, la.flags.federatedTokenProvider,
+		case la.flags.federatedTokenProvider == string(auth.GitHubFederatedTokenProvider):
+			if _, err := la.authManager.LoginWithGitHubFederatedTokenProvider(
+				ctx, la.flags.tenantID, la.flags.clientID,
 			); err != nil {
 				return fmt.Errorf("logging in: %w", err)
 			}
-		case la.flags.serviceConnectionID != "":
-			if _, err := la.authManager.LoginWithServiceConnection(
-				ctx, la.flags.tenantID, la.flags.clientID, la.flags.serviceConnectionID, la.flags.systemAccessTokenEnvVar,
+		case la.flags.federatedTokenProvider == string(auth.AzurePipelinesFederatedTokenProvider):
+			serviceConnectionID := os.Getenv(auth.AzurePipelinesServiceConnectionIDEnvVarName)
+
+			if serviceConnectionID == "" {
+				return fmt.Errorf("must set %s for azure-pipelines federated token provider",
+					auth.AzurePipelinesServiceConnectionIDEnvVarName)
+			}
+
+			if _, err := la.authManager.LoginWithAzurePipelinesFederatedTokenProvider(
+				ctx, la.flags.tenantID, la.flags.clientID, serviceConnectionID,
 			); err != nil {
 				return fmt.Errorf("logging in: %w", err)
 			}
